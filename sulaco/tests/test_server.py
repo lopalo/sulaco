@@ -3,19 +3,34 @@ from zmq.eventloop import ioloop
 ioloop.install()
 
 from tornado.ioloop import IOLoop
-from sulaco.simple_protocol import SimpleProtocol
-from sulaco.outer_server import (TCPServer,
-                                 ConnectionManager,
-                                 ConnectionHandler)
-from sulaco.utils.receiver import message_receiver
+from sulaco.tcp_server import TCPServer, SimpleProtocol
+from sulaco.outer_server import ConnectionManager, ConnectionHandler
+from sulaco.utils.receiver import message_receiver, unsigned
 #from sulaco.message_manager import MessageManager
 
 class Root(object):
 
     @message_receiver
+    @unsigned
     def echo(self, text, conn, **kwargs):
         text = 'Echo: ' + text
-        conn.sender.echo(text=text)
+        conn.s.echo(text=text)
+
+    @unsigned
+    @message_receiver
+    def sign_id(self, username, conn, connman, **kwargs):
+        uid = hash(username)
+        connman.bind_connection_to_uid(conn, uid)
+        conn.s.sign_id(uid=uid)
+
+    @message_receiver
+    def method_signed(self):
+        pass
+
+    @message_receiver
+    def send_to_user(self, text, receiver, connman, **kwargs):
+        msg = dict(path='message_from_user', kwargs=dict(text=text))
+        connman.send_by_uid(receiver, msg)
 
 
 class Protocol(ConnectionHandler, SimpleProtocol):

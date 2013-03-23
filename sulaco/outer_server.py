@@ -1,30 +1,8 @@
 from collections import defaultdict
-from tornado.netutil import TCPServer as BasicTCPServer
+from sulaco.utils.receiver import Sender, dispatch, SignError
 
-from sulaco.utils.receiver import Sender, dispatch
-
-class TCPServer(BasicTCPServer):
-
-    def setup(self, protocol, connman, root, max_conn=None):
-        #TODO: check if protocol is sublclass of abstract
-        #protocol with methods 'send', 'close' and 'send_and_close'
-        if not issubclass(protocol, ConnectionHandler):
-            raise Exception('Should be a subclass of ConnectionHandler')
-        self._protocol = protocol
-        self._connman = connman
-        self._root = root
-        self._max_conn = max_conn
-
-    def handle_stream(self, stream, address):
-        conn = self._protocol(stream)
-        conn.setup(self._connman, self._root)
-        conn.on_open()
-        max_conn = self._max_conn
-        if max_conn is not None:
-            if max_conn + 1 == self._connman.connections_count:
-                conn.sender.error(msg='max_connections')
-                conn.send_and_close()
-
+SIGN_ERROR = 'sign_error'
+MAX_CONNECTION_ERROR = 'max_connections_error'
 
 class ConnectionHandler(object):
     """
@@ -34,7 +12,7 @@ class ConnectionHandler(object):
     def setup(self, connman, root):
         self._connman = connman
         self._root = root
-        self.sender = Sender(self)
+        self.s = Sender(self)
 
     def on_open(self, *args):
         super(ConnectionHandler, self).on_open(*args)
@@ -42,16 +20,26 @@ class ConnectionHandler(object):
 
     def on_message(self, message):
         super(ConnectionHandler, self).on_message(message)
-        path = message.pop('path').split('.')
-        message['connman'] = self._connman
-        message['conn'] = self
-        dispatch(self._root, 0, path, message)
+        path = message['path'].split('.')
+        uid = self._connman.get_uid(self)
+        signed = uid is not None
+        kwargs = message['kwargs']
+        kwargs['connman'] = self._connman
+        kwargs['conn'] = self
+        if uid is not None:
+            kwargs['uid'] = uid
+        try:
+            dispatch(self._root, 0, path, signed, kwargs)
+        except SignError:
+            self._on_sign_error()
 
     def on_close(self):
         super(ConnectionHandler, self).on_close()
         self._connman.remove_connection(self)
         #TODO: maybe notify all connected rooms and do final actions
 
+    def _on_sign_error(self):
+        self.s.error(msg=SIGN_ERROR)
 
 class ConnectionManager(object):
     _connections = set()
@@ -67,6 +55,7 @@ class ConnectionManager(object):
         self._connections.add(conn)
 
     def bind_connection_to_uid(self, conn, uid):
+        assert uid not in self._uid_to_connection, 'uid already exists'
         self._connection_to_uid[conn] = uid
         self._uid_to_connection[uid] = conn
 
@@ -83,8 +72,17 @@ class ConnectionManager(object):
         for r in rooms:
             r.remove(conn)
 
+    def send_by_uid(self, uid, msg):
+        conn = self._uid_to_connection.get(uid)
+        if conn is None:
+            return False
+        conn.send(msg)
+        return True
+
     @property
     def connections_count(self):
         return len(self._connections)
 
+    def get_uid(self, conn):
+        return self._connection_to_uid.get(conn)
 

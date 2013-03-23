@@ -11,9 +11,8 @@ class Sender(object):
         return Sender(self._conn, self._path + (name,))
 
     def __call__(self, **kwargs):
-        assert 'path' not in kwargs, "Keyword argument 'path' is not available"
-        kwargs['path'] = '.'.join(self._path)
-        self._conn.send(kwargs)
+        message = dict(kwargs=kwargs, path='.'.join(self._path))
+        self._conn.send(message)
 
 
 MESSAGE_ROUTER = '__message_router__'
@@ -24,7 +23,11 @@ class ReceiverError(Exception):
     pass
 
 
-def dispatch(obj, index, path, kwargs):
+class SignError(Exception):
+    pass
+
+
+def dispatch(obj, index, path, signed, kwargs):
     """ Additional arguments need add to kwargs dict """
 
     name = path[index]
@@ -48,8 +51,10 @@ def dispatch(obj, index, path, kwargs):
     if meth_type == MESSAGE_ROUTER and index == max_index:
         etxt = "Got router method '{}' of {}, expected receiver. {}"
         raise ReceiverError(etxt.format(name, obj, pinfo))
+    if not signed and getattr(meth, '__must_be_signed__', True):
+        raise SignError()
     if meth_type == MESSAGE_ROUTER:
-        meth(index, path, kwargs)
+        meth(index, path, signed, kwargs)
     if meth_type == MESSAGE_RECEIVER:
         meth(**kwargs)
 
@@ -57,10 +62,10 @@ def dispatch(obj, index, path, kwargs):
 def message_router(func):
     func.__receiver__method__ = MESSAGE_ROUTER
     @wraps(func)
-    def new_func(self, index, path, kwargs):
+    def new_func(self, index, path, signed, kwargs):
         obj = func(self, **kwargs)
         assert obj is not None
-        dispatch(obj, index+1, path, kwargs)
+        dispatch(obj, index+1, path, signed, kwargs)
     return new_func
 
 
@@ -69,5 +74,6 @@ def message_receiver(func):
     return func
 
 
-
-
+def unsigned(func):
+    func.__must_be_signed__ = False
+    return func

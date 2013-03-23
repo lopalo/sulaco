@@ -1,19 +1,21 @@
 import unittest
 from sulaco.utils.receiver import (
     Sender, dispatch, message_router, message_receiver,
-    ReceiverError)
+    ReceiverError, SignError, unsigned)
+
 
 class Conn(object):
 
     def __init__(self, root):
         self._root = root
+        self.signed = True
 
     def send(self, msg):
         self.on_message(msg)
 
     def on_message(self, msg):
-        path = msg.pop('path').split('.')
-        dispatch(self._root, 0, path, msg)
+        path = msg['path'].split('.')
+        dispatch(self._root, 0, path, self.signed, msg['kwargs'])
 
 
 class Obj(object):
@@ -29,12 +31,23 @@ class Obj(object):
     def meth_c(self):
         pass
 
+    @message_router
+    @unsigned
+    def meth_z(self):
+        return self
+
+    @unsigned
+    @message_receiver
+    def meth_x(self):
+        pass
+
 
 class TestReceiver(unittest.TestCase):
 
     def setUp(self):
         self.obj = Obj()
-        self.sender = Sender(Conn(self.obj))
+        self.conn = Conn(self.obj)
+        self.sender = Sender(self.conn)
 
     def test_route(self):
         self.sender.meth_a.meth_a.meth_a.meth_b(b='gg', a=44)
@@ -61,6 +74,18 @@ class TestReceiver(unittest.TestCase):
         with self.assertRaisesRegexp(ReceiverError, txt):
             self.sender.meth_a.meth_a.meth_b.meth_b.meth_b.meth_a()
 
+    def test_sign1(self):
+        self.conn.signed = False
+        with self.assertRaises(SignError):
+            self.sender.meth_a.meth_a()
+        with self.assertRaises(SignError):
+            self.sender.meth_b()
+        self.conn.signed = True
+        self.sender.meth_a.meth_b(a=1, b=1)
+
+    def test_signed2(self):
+        self.conn.signed = False
+        self.sender.meth_z.meth_x()
 
 
 if __name__ == '__main__':
