@@ -19,11 +19,11 @@ class TestSendToUser(BasicFuncTest):
 
         c1.s.send_to_user(receiver=uid2, text='Foo')
         self.assertEqual({u'path': u'message_from_user',
-                          u'kwargs': {u'text': u'Foo'}},
+                          u'kwargs': {u'text': u'Foo', u'uid': uid1}},
                           c2.recv(path_prefix='message_from_user'))
         c2.s.send_to_user(receiver=uid1, text='Bar')
         self.assertEqual({u'path': u'message_from_user',
-                          u'kwargs': {u'text': u'Bar'}},
+                          u'kwargs': {u'text': u'Bar', u'uid': uid2}},
                           c1.recv(path_prefix='message_from_user'))
 
 

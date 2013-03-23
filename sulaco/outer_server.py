@@ -36,41 +36,54 @@ class ConnectionHandler(object):
     def on_close(self):
         super(ConnectionHandler, self).on_close()
         self._connman.remove_connection(self)
-        #TODO: maybe notify all connected rooms and do final actions
+        #TODO: maybe notify all connected channels and do final actions
 
     def _on_sign_error(self):
         self.s.error(msg=SIGN_ERROR)
 
 class ConnectionManager(object):
+    """Singleton"""
+
     _connections = set()
 
     _uid_to_connection = {}
     _connection_to_uid = {}
 
-    _rooms_to_connection = defaultdict(set)
-    _connection_to_rooms = defaultdict(set)
+    _channels_to_connections = defaultdict(set)
+    _connections_to_channels = defaultdict(set)
 
     def add_connection(self, conn):
-        assert conn not in self._connections
+        assert conn not in self._connections, 'connection already registered'
         self._connections.add(conn)
 
     def bind_connection_to_uid(self, conn, uid):
+        assert conn in self._connections, 'unknown connection'
         assert uid not in self._uid_to_connection, 'uid already exists'
         self._connection_to_uid[conn] = uid
         self._uid_to_connection[uid] = conn
 
-    def add_connection_to_room(self, conn, room):
-        self._connection_to_rooms[conn].add(room)
-        self._rooms_to_connection[room].add(conn)
+    def add_connection_to_channel(self, conn, channel):
+        assert conn in self._connections, 'unknown connection'
+        self._connections_to_channels[conn].add(channel)
+        self._channels_to_connections[channel].add(conn)
+
+    def remove_connection_from_channel(self, conn, channel):
+        self._connections_to_channels[conn].remove(channel)
+        self._channels_to_connections[channel].remove(conn)
+        if not self._channels_to_connections[channel]:
+            del self._channels_to_connections[channel]
 
     def remove_connection(self, conn):
         self._connections.remove(conn)
         uid = self._connection_to_uid.pop(conn, None)
         if uid is not None:
             del self._uid_to_connection[uid]
-        rooms = self._connection_to_rooms.pop(conn, [])
-        for r in rooms:
-            r.remove(conn)
+        channels = self._connections_to_channels.pop(conn, [])
+        for channel in channels:
+            self._channels_to_connections[channel].remove(conn)
+            if not self._channels_to_connections[channel]:
+                del self._channels_to_connections[channel]
+
 
     def send_by_uid(self, uid, msg):
         conn = self._uid_to_connection.get(uid)
@@ -78,6 +91,12 @@ class ConnectionManager(object):
             return False
         conn.send(msg)
         return True
+
+    def publish_to_channel(self, channel, msg):
+        if channel not in self._channels_to_connections:
+            return
+        for conn in self._channels_to_connections[channel]:
+            conn.send(msg)
 
     @property
     def connections_count(self):

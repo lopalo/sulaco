@@ -14,6 +14,8 @@ class TestErrorMessages(BasicFuncTest):
         c2.connect(7770)
         self.assertEqual({u'kwargs': {u'msg': u'max_connections_error'},
                           u'path': u'error'}, c2.recv())
+        with self.assertRaisesRegexp(IOError, 'Stream is closed'):
+            c2.s.echo()
 
 
 

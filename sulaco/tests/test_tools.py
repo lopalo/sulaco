@@ -1,6 +1,7 @@
 import subprocess
 import socket
 import unittest
+from collections import deque
 from time import time, sleep
 from os import path
 
@@ -21,6 +22,7 @@ class BlockingClient(SimpleProtocol):
         self._timeout_error = None
         self._kwargs_contain = None
         self._path_prefix = None
+        self._buffer = deque()
         self._loop = IOLoop.instance()
         self.s = Sender(self)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
@@ -32,9 +34,24 @@ class BlockingClient(SimpleProtocol):
         return self._wait(seconds)
 
     def recv(self, seconds=5, path_prefix='', kwargs_contain={}):
+        msg = self._check_buffer(path_prefix, kwargs_contain)
+        if msg is not None:
+            return msg
         self._path_prefix = path_prefix
         self._kwargs_contain = kwargs_contain
         return self._wait(seconds)
+
+    def _check_buffer(self, path_prefix, kwargs_contain):
+        while self._buffer:
+            msg = self._buffer.popleft()
+            if not msg['path'].startswith(path_prefix):
+                continue
+            for k, v in kwargs_contain.items():
+                if msg['kwargs'].get(k) != v:
+                    continue
+            return msg
+
+
 
     def send(self, msg, seconds=5):
         super(BlockingClient, self).send(msg)
@@ -69,6 +86,9 @@ class BlockingClient(SimpleProtocol):
 
     def on_message(self, msg):
         super(BlockingClient, self).on_message(msg)
+        if self._path_prefix is None:
+            self._buffer.append(msg)
+            return
         if not msg['path'].startswith(self._path_prefix):
             return
         for k, v in self._kwargs_contain.items():
