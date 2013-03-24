@@ -47,7 +47,7 @@ class TestReceiver(unittest.TestCase):
     def setUp(self):
         self.obj = Obj()
         self.conn = Conn(self.obj)
-        self.sender = Sender(self.conn)
+        self.sender = Sender(self.conn.send)
 
     def test_route(self):
         self.sender.meth_a.meth_a.meth_a.meth_b(b='gg', a=44)

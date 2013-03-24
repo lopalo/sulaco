@@ -24,7 +24,7 @@ class BlockingClient(SimpleProtocol):
         self._path_prefix = None
         self._buffer = deque()
         self._loop = IOLoop.instance()
-        self.s = Sender(self)
+        self.s = Sender(self.send)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         stream = IOStream(sock)
         super(BlockingClient, self).__init__(stream)
@@ -50,8 +50,6 @@ class BlockingClient(SimpleProtocol):
                 if msg['kwargs'].get(k) != v:
                     continue
             return msg
-
-
 
     def send(self, msg, seconds=5):
         super(BlockingClient, self).send(msg)
@@ -99,14 +97,22 @@ class BlockingClient(SimpleProtocol):
 
 
 class BasicFuncTest(unittest.TestCase):
+    dirname = path.dirname(path.abspath(__file__))
+    config = path.join(dirname, 'test_config.yaml')
 
     def setUp(self):
         self._servers = {}
         self._clients = []
 
+        # setup broker
+        p = path.join(self.dirname, '..', 'message_broker.py')
+        args = ['python', p, '-c', self.config]
+        self._broker = subprocess.Popen(args)
+
     def tearDown(self):
         for s in self._servers.values():
             s.terminate()
+        self._broker.terminate()
         for c in self._clients:
             c.close()
 
@@ -114,11 +120,11 @@ class BasicFuncTest(unittest.TestCase):
         assert port not in self._servers
         port = str(port)
         max_conn = str(max_conn)
-        p = path.join(path.dirname(path.abspath(__file__)), 'test_server.py')
-        args = ['python', p, '-p', port, '-c', max_conn]
+        p = path.join(self.dirname, 'test_server.py')
+        args = ['python', p, '-p', port, '-mc', max_conn, '-c', self.config]
         s = subprocess.Popen(args)
         self._servers[port] = s
-        sleep(0.1)
+        sleep(.15)
 
     def client(self):
         c = BlockingClient()

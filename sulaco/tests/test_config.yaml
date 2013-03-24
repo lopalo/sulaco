@@ -1,0 +1,4 @@
+
+message_broker:
+  sub_address: 'tcp://127.0.0.1:7800'
+  pub_address: 'tcp://127.0.0.1:7801'

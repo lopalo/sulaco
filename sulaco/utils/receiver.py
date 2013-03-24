@@ -1,18 +1,20 @@
 import json
 from functools import wraps
 
+
 class Sender(object):
 
-    def __init__(self, conn, path=tuple()):
-        self._conn = conn
+    def __init__(self, send, path=tuple()):
+        assert callable(send), send
+        self._send = send
         self._path = path
 
     def __getattr__(self, name):
-        return Sender(self._conn, self._path + (name,))
+        return Sender(self._send, self._path + (name,))
 
     def __call__(self, **kwargs):
         message = dict(kwargs=kwargs, path='.'.join(self._path))
-        self._conn.send(message)
+        self._send(message)
 
 
 MESSAGE_ROUTER = '__message_router__'

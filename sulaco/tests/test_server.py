@@ -4,9 +4,11 @@ ioloop.install()
 
 from tornado.ioloop import IOLoop
 from sulaco.tcp_server import TCPServer, SimpleProtocol
-from sulaco.outer_server import ConnectionManager, ConnectionHandler
+from sulaco.outer_server import DistributedConnectionManager, ConnectionHandler
 from sulaco.utils.receiver import message_receiver, message_router, unsigned
-#from sulaco.message_manager import MessageManager
+from sulaco.utils import Config
+from sulaco.message_manager import MessageManager
+
 
 class Root(object):
 
@@ -29,8 +31,7 @@ class Root(object):
 
     @message_receiver
     def send_to_user(self, text, receiver, connman, uid, **kwargs):
-        msg = dict(path='message_from_user', kwargs=dict(text=text, uid=uid))
-        connman.send_by_uid(receiver, msg)
+        connman.us(receiver).message_from_user(text=text, uid=uid)
 
     @message_router
     @unsigned
@@ -48,9 +49,7 @@ class Channels(object):
     @message_receiver
     @unsigned
     def publish(self, connman, channel, text, **kwargs):
-        kwargs = dict(text=text, channel=channel)
-        msg = dict(path='message_from_channel', kwargs=kwargs)
-        connman.publish_to_channel(channel, msg)
+        connman.cs(channel).message_from_channel(text=text, channel=channel)
 
     @message_receiver
     @unsigned
@@ -63,9 +62,12 @@ class Protocol(ConnectionHandler, SimpleProtocol):
 
 
 def main(options):
-    #msgman = MessageManager()
-    connman = ConnectionManager()
+    config = Config.load_yaml(options.config)
+    msgman = MessageManager(config)
+    connman = DistributedConnectionManager(msgman.pub_to_broker,
+                                           msgman.sub_to_broker)
     root = Root()
+    msgman.setup(connman)
     server = TCPServer()
     server.setup(Protocol, connman, root, options.max_conn)
     server.listen(options.port)
@@ -76,8 +78,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--port', help='run on the given port',
                         action='store', dest='port', type=int, required=True)
-    parser.add_argument('-c', '--max-conn', help='max connections on server',
+    parser.add_argument('-mc', '--max-conn', help='max connections on server',
                         action='store', dest='max_conn',
                         type=int, required=True)
+    parser.add_argument('-c', '--config', action='store', dest='config',
+                        help='path to config file', type=str, required=True)
     options = parser.parse_args()
     main(options)
