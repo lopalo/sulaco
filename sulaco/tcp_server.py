@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 import json
 from tornado.netutil import TCPServer as BasicTCPServer
 
-from sulaco.outer_server import ConnectionHandler, MAX_CONNECTION_ERROR
+from sulaco.connection_manager import ConnectionHandler, MAX_CONNECTION_ERROR
 
 
 class TCPServer(BasicTCPServer):

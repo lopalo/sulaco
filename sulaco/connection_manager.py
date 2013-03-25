@@ -53,15 +53,15 @@ class ConnectionHandler(object):
 
 
 class ConnectionManager(object):
-    """Singleton"""
 
-    _connections = set()
+    def __init__(self):
+        self._connections = set()
 
-    _uid_to_connection = {}
-    _connection_to_uid = {}
+        self._uid_to_connection = {}
+        self._connection_to_uid = {}
 
-    _channels_to_connections = defaultdict(set)
-    _connections_to_channels = defaultdict(set)
+        self._channels_to_connections = defaultdict(set)
+        self._connections_to_channels = defaultdict(set)
 
     def add_connection(self, conn):
         assert conn not in self._connections, 'connection already registered'
@@ -132,6 +132,7 @@ class DistributedConnectionManager(ConnectionManager):
     #TODO: write tests
 
     def __init__(self, pub_socket, sub_socket):
+        super(DistributedConnectionManager, self).__init__()
         self._pub_socket = pub_socket
         self._sub_socket = sub_socket
 
@@ -154,11 +155,11 @@ class DistributedConnectionManager(ConnectionManager):
         self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
 
     def remove_connection(self, conn):
-        uid = self._connection_to_uid.pop(conn, None)
+        uid = self._connection_to_uid.get(conn, None)
         if uid is not None:
             topic = SEND_BY_UID_PREFIX + str(uid)
             self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
-        channels = self._connections_to_channels.pop(conn, [])
+        channels = self._connections_to_channels.get(conn, [])
         for channel in channels:
             topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
             self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)

@@ -4,7 +4,8 @@ ioloop.install()
 
 from tornado.ioloop import IOLoop
 from sulaco.tcp_server import TCPServer, SimpleProtocol
-from sulaco.outer_server import DistributedConnectionManager, ConnectionHandler
+from sulaco.connection_manager import (DistributedConnectionManager,
+                                       ConnectionHandler)
 from sulaco.utils.receiver import message_receiver, message_router, unsigned
 from sulaco.utils import Config
 from sulaco.message_manager import MessageManager
