@@ -7,7 +7,7 @@ from os import path
 
 from tornado.iostream import IOStream
 from tornado.ioloop import IOLoop
-from sulaco.tcp_server import SimpleProtocol
+from sulaco.outer_server.tcp_server import SimpleProtocol
 from sulaco.utils.receiver import Sender
 
 
@@ -105,7 +105,7 @@ class BasicFuncTest(unittest.TestCase):
         self._clients = []
 
         # setup broker
-        p = path.join(self.dirname, '..', 'message_broker.py')
+        p = path.join(self.dirname, '..', 'outer_server', 'message_broker.py')
         args = ['python', p, '-c', self.config]
         self._broker = subprocess.Popen(args)
 

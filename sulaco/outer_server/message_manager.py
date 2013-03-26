@@ -2,8 +2,9 @@ import json
 import zmq
 from zmq.eventloop import zmqstream
 
-from sulaco.connection_manager import (SEND_BY_UID_PREFIX,
-                                       PUBLISH_TO_CHANNEL_PREFIX)
+from sulaco.outer_server.connection_manager import (
+    SEND_BY_UID_PREFIX,
+    PUBLISH_TO_CHANNEL_PREFIX)
 
 
 def message_handler(prefix):

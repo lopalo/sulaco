@@ -1,9 +1,10 @@
 import unittest
 import zmq
 from mock import Mock, call
-from sulaco.tcp_server import SimpleProtocol
-from sulaco.connection_manager import (DistributedConnectionManager,
-                                       ConnectionHandler)
+from sulaco.outer_server.tcp_server import SimpleProtocol
+from sulaco.outer_server.connection_manager import (
+    DistributedConnectionManager,
+    ConnectionHandler)
 
 
 class Protocol(ConnectionHandler, SimpleProtocol):
