@@ -3,15 +3,9 @@ from functools import partial
 
 import zmq
 
-from sulaco.utils.receiver import Sender, dispatch, SignError
-
-# errors constants
-SIGN_ERROR = 'sign_error'
-MAX_CONNECTION_ERROR = 'max_connections_error'
-
-# subscribe prefixes
-SEND_BY_UID_PREFIX = 'send_by_uid:'
-PUBLISH_TO_CHANNEL_PREFIX = 'publish_to_channel:'
+from sulaco import (SIGN_ERROR, MAX_CONNECTION_ERROR,
+                    SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX)
+from sulaco.utils.receiver import Sender, dispatch, SignError, USER_SIGN
 
 
 class ConnectionHandler(object):
@@ -31,17 +25,20 @@ class ConnectionHandler(object):
     def on_message(self, message):
         super(ConnectionHandler, self).on_message(message)
         path = message['path'].split('.')
-        uid = self._connman.get_uid(self)
-        signed = uid is not None
         kwargs = message['kwargs']
-        kwargs['connman'] = self._connman
         kwargs['conn'] = self
+        uid = self._connman.get_uid(self)
         if uid is not None:
             kwargs['uid'] = uid
+            sign = USER_SIGN
+        else:
+            sign = None
         try:
-            dispatch(self._root, 0, path, signed, kwargs)
+            dispatch(self._root, 0, path, sign, kwargs)
         except SignError:
+            #TODO: log
             self._on_sign_error()
+        #TODO: catch other exceptions and write them to log
 
     def on_close(self):
         super(ConnectionHandler, self).on_close()
@@ -114,10 +111,10 @@ class ConnectionManager(object):
         for conn in self._channels_to_connections[channel]:
             conn.send(msg)
 
-    def cs(self, channel):
+    def cs(self, channel, locally=True):
         """ Returns channel's sender """
 
-        send = partial(self.publish_to_channel, channel)
+        send = partial(self.publish_to_channel, channel, locally=locally)
         return Sender(send)
 
     @property
@@ -129,12 +126,12 @@ class ConnectionManager(object):
 
 
 class DistributedConnectionManager(ConnectionManager):
-    #TODO: write tests
 
     def __init__(self, pub_socket, sub_socket):
         super(DistributedConnectionManager, self).__init__()
         self._pub_socket = pub_socket
         self._sub_socket = sub_socket
+        self._local_channels = set()
 
     def bind_connection_to_uid(self, conn, uid):
         super(DistributedConnectionManager,
@@ -142,15 +139,24 @@ class DistributedConnectionManager(ConnectionManager):
         topic = SEND_BY_UID_PREFIX + str(uid)
         self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
 
-    def add_connection_to_channel(self, conn, channel):
+    def add_connection_to_channel(self, conn, channel, locally=True):
         super(DistributedConnectionManager,
                 self).add_connection_to_channel(conn, channel)
+        if locally:
+            #TODO: write test
+            self._local_channels.add(channel)
+            return
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
         self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
 
     def remove_connection_from_channel(self, conn, channel):
         super(DistributedConnectionManager,
                 self).remove_connection_from_channel(conn, channel)
+        if channel in self._local_channels:
+            #TODO: write test
+            if channel not in self._channels_to_connections:
+                self._local_channels.remove(channel)
+            return
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
         self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
 
@@ -164,6 +170,8 @@ class DistributedConnectionManager(ConnectionManager):
             topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
             self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
         super(DistributedConnectionManager, self).remove_connection(conn)
+        #TODO: write test
+        self._local_channels.intersection_update(self._channels_to_connections)
 
     def send_by_uid(self, uid, msg):
         sent = super(DistributedConnectionManager, self).send_by_uid(uid, msg)
@@ -173,11 +181,11 @@ class DistributedConnectionManager(ConnectionManager):
         self._pub_socket.send(topic, zmq.SNDMORE)
         self._pub_socket.send_json(msg)
 
-    def publish_to_channel(self, channel, msg, local=False):
+    def publish_to_channel(self, channel, msg, locally=True):
         super(DistributedConnectionManager,
                 self).publish_to_channel(channel, msg)
-        if local:
-            # to prevent infinite broadcasting
+        if locally:
+            # to prevent of infinite broadcast
             return
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
         self._pub_socket.send(topic, zmq.SNDMORE)

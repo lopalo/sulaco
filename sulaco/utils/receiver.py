@@ -20,6 +20,11 @@ class Sender(object):
 MESSAGE_ROUTER = '__message_router__'
 MESSAGE_RECEIVER = '__message_receiver__'
 
+USER_SIGN = '__user_sign__'
+INTERNAL_SIGN = '__internal_sign__'
+INTERNAL_USER_SIGN = '__internal_user_sign__'
+SIGNS = (None, USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN,)
+
 
 class ReceiverError(Exception):
     pass
@@ -29,7 +34,7 @@ class SignError(Exception):
     pass
 
 
-def dispatch(obj, index, path, signed, kwargs):
+def dispatch(obj, index, path, sign, kwargs):
     """ Additional arguments need add to kwargs dict """
 
     name = path[index]
@@ -53,29 +58,42 @@ def dispatch(obj, index, path, signed, kwargs):
     if meth_type == MESSAGE_ROUTER and index == max_index:
         etxt = "Got router method '{}' of {}, expected receiver. {}"
         raise ReceiverError(etxt.format(name, obj, pinfo))
-    if not signed and getattr(meth, '__must_be_signed__', True):
-        raise SignError()
+
+    if (meth.__sign__ == INTERNAL_USER_SIGN and
+            sign not in (INTERNAL_SIGN, USER_SIGN)):
+        raise SignError("Need internal or user's sign")
+    elif meth.__sign__ == INTERNAL_SIGN and sign != INTERNAL_SIGN:
+        raise SignError("Need internal sign")
+    elif meth.__sign__ == USER_SIGN and sign != USER_SIGN:
+        raise SignError("Need user's sign")
+
     if meth_type == MESSAGE_ROUTER:
-        meth(index, path, signed, kwargs)
+        meth(index, path, sign, kwargs)
     if meth_type == MESSAGE_RECEIVER:
         meth(**kwargs)
 
 
-def message_router(func):
-    func.__receiver__method__ = MESSAGE_ROUTER
-    @wraps(func)
-    def new_func(self, index, path, signed, kwargs):
-        obj = func(self, **kwargs)
-        assert obj is not None
-        dispatch(obj, index+1, path, signed, kwargs)
-    return new_func
+def message_router(sign=None):
+    #TODO: implement as context manager
+    assert sign in SIGNS, "unknown sign '{}'".format(sign)
+    def _message_router(func):
+        func.__sign__ = sign
+        func.__receiver__method__ = MESSAGE_ROUTER
+        @wraps(func)
+        def new_func(self, index, path, sign, kwargs):
+            obj = func(self, **kwargs)
+            assert obj is not None
+            dispatch(obj, index+1, path, sign, kwargs)
+        return new_func
+    return _message_router
 
 
-def message_receiver(func):
-    func.__receiver__method__ = MESSAGE_RECEIVER
-    return func
+def message_receiver(sign=None):
+    assert sign in SIGNS, "unknown sign '{}'".format(sign)
+    def _message_receiver(func):
+        func.__sign__ = sign
+        func.__receiver__method__ = MESSAGE_RECEIVER
+        return func
+    return _message_receiver
 
 
-def unsigned(func):
-    func.__must_be_signed__ = False
-    return func

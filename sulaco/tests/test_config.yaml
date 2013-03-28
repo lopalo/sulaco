@@ -2,3 +2,13 @@
 message_broker:
   sub_address: 'tcp://127.0.0.1:7800'
   pub_address: 'tcp://127.0.0.1:7801'
+
+outer_server:
+  location_handler_path: location
+
+user:
+  start_locations: [loc_X]
+
+location_manager:
+  pub_address: 'tcp://127.0.0.1:7802'
+
