@@ -98,7 +98,7 @@ class BlockingClient(SimpleProtocol):
 
 class BasicFuncTest(unittest.TestCase):
     dirname = path.dirname(path.abspath(__file__))
-    config = path.join(dirname, 'test_config.yaml')
+    config = path.join(dirname, 'config.yaml')
 
     def setUp(self):
         self._servers = []
@@ -133,7 +133,7 @@ class BasicFuncTest(unittest.TestCase):
         for port, max_conn in infos:
             port = str(port)
             max_conn = str(max_conn)
-            p = path.join(self.dirname, 'test_server.py')
+            p = path.join(self.dirname, 'server.py')
             args = ['python', p, '-p', port, '-mc',
                     max_conn, '-c', self.config]
             s = subprocess.Popen(args)
@@ -146,7 +146,7 @@ class BasicFuncTest(unittest.TestCase):
     def run_locations(self, *infos):
         for ident, pub, pull in infos:
             assert ident not in self._locations
-            p = path.join(self.dirname, 'test_location.py')
+            p = path.join(self.dirname, 'location.py')
             args = ['python', p,
                     '-pub', pub,
                     '-pull', pull,

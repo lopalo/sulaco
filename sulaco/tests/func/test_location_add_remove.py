@@ -1,4 +1,4 @@
-from sulaco.tests.test_tools import BasicFuncTest
+from sulaco.tests.tools import BasicFuncTest
 
 
 class TestLocationAddRemove(BasicFuncTest):
