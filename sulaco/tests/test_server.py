@@ -8,15 +8,16 @@ from tornado.ioloop import IOLoop
 from sulaco.outer_server.tcp_server import TCPServer, SimpleProtocol
 from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,
-    ConnectionHandler)
+    ConnectionHandler, LocationMixin)
 from sulaco.utils.receiver import (
     message_receiver, message_router,
     USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN)
 from sulaco.utils import Config
 from sulaco.outer_server.message_manager import MessageManager
+from sulaco.outer_server.message_manager import Root as ABCRoot
 
 
-class Root(object):
+class Root(ABCRoot):
 
     def __init__(self, config, connman, msgman):
         self._config = config
@@ -58,13 +59,11 @@ class Root(object):
         #TODO: implement autosave for user using contextmanager
         return Location(loc_name, user, socket, self._connman)
 
-    def location_added(self):
-        #TODO: notify all users
-        pass
+    def location_added(self, loc_id):
+        self._connman.alls.location_added(loc_id=loc_id)
 
-    def location_removed(self):
-        #TODO: notfiy all users
-        pass
+    def location_removed(self, loc_id):
+        self._connman.alls.location_removed(loc_id=loc_id)
 
 
 class Channels(object):
@@ -74,16 +73,16 @@ class Channels(object):
 
     @message_receiver()
     def subscribe(self, conn, channel, **kwargs):
-        self._connman.add_connection_to_channel(conn, channel, False)
+        self._connman.add_connection_to_channel(conn, channel)
 
     @message_receiver()
     def publish(self, channel, text, **kwargs):
         self._connman.cs(channel, False).message_from_channel(text=text,
-                                                        channel=channel)
+                                                              channel=channel)
 
     @message_receiver()
     def unsubscribe(self, conn, channel, **kwargs):
-        self._connman.remove_connection_from_channel(conn, channel, False)
+        self._connman.remove_connection_from_channel(conn, channel)
 
 
 class User(object):
@@ -104,7 +103,7 @@ class Location(object):
     @message_receiver(USER_SIGN)
     def move_to(self, next_location, **kwargs):
         # TODO: push to location > check in location and exit > push to message_manager >
-        #       enter location (meth 'enter') > init in new location > init
+        #       enter location (meth 'enter') > init in new location > init meth
         pass
 
     @message_receiver(INTERNAL_SIGN)
@@ -121,11 +120,17 @@ class Protocol(ConnectionHandler, SimpleProtocol):
     pass
 
 
+class ConnManager(DistributedConnectionManager, LocationMixin):
+    pass
+
+
 def main(options):
     config = Config.load_yaml(options.config)
     msgman = MessageManager(config)
-    connman = DistributedConnectionManager(msgman.pub_to_broker,
-                                           msgman.sub_to_broker)
+    msgman.connect()
+    connman = ConnManager(pub_socket=msgman.pub_to_broker,
+                          sub_socket=msgman.sub_to_broker,
+                          locations_sub_socket=msgman.sub_to_locs)
     root = Root(config, connman, msgman)
     msgman.setup(connman, root)
     server = TCPServer()

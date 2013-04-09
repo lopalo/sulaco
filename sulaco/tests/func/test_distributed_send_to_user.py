@@ -4,7 +4,7 @@ from sulaco.tests.test_tools import BasicFuncTest
 class TestDistributedSendToUser(BasicFuncTest):
 
     def runTest(self):
-        self.run_server(7770, 5)
+        self.run_servers((7770, 5), (7773, 5))
         c1 = self.client()
         c1.connect(7770)
         c1.s.sign_id(username='user1')
@@ -12,7 +12,6 @@ class TestDistributedSendToUser(BasicFuncTest):
         self.assertEqual(-2878283150406289529, uid1)
 
 
-        self.run_server(7773, 5)
         c2 = self.client()
         c2.connect(7773)
         c2.s.sign_id(username='user2')

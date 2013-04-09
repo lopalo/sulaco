@@ -14,7 +14,9 @@ class Protocol(ConnectionHandler, SimpleProtocol):
 class TestDistributedConnectionManager(unittest.TestCase):
 
     def setUp(self):
-        self.connman = DistributedConnectionManager(Mock(), Mock())
+        self.connman = DistributedConnectionManager(pub_socket=Mock(),
+                                                    sub_socket=Mock(),
+                                                    location_pub_socket=Mock())
 
     def get_connection(self):
         conn = Protocol(Mock())
@@ -35,9 +37,9 @@ class TestDistributedConnectionManager(unittest.TestCase):
         conn = self.get_connection()
         conn.on_open()
         connman = self.connman
-        connman.add_connection_to_channel(conn, 'chan', False)
-        self.assertEqual({'chan': {conn,}}, connman._channels_to_connections)
-        self.assertEqual({conn: {'chan',}}, connman._connections_to_channels)
+        connman.add_connection_to_channel(conn, 'chan')
+        self.assertEqual({'chan': {conn,}}, connman._channel_to_connections)
+        self.assertEqual({conn: {'chan',}}, connman._connection_to_channels)
         connman._sub_socket.setsockopt.assert_called_with(zmq.SUBSCRIBE,
                                                 'publish_to_channel:chan')
 
@@ -45,10 +47,10 @@ class TestDistributedConnectionManager(unittest.TestCase):
         conn = self.get_connection()
         conn.on_open()
         connman = self.connman
-        connman.add_connection_to_channel(conn, 'chan', False)
+        connman.add_connection_to_channel(conn, 'chan')
         connman.remove_connection_from_channel(conn, 'chan')
-        self.assertEqual({}, connman._channels_to_connections)
-        self.assertEqual({conn: set()}, connman._connections_to_channels)
+        self.assertEqual({}, connman._channel_to_connections)
+        self.assertEqual({conn: set()}, connman._connection_to_channels)
         connman._sub_socket.setsockopt.assert_called_with(zmq.UNSUBSCRIBE,
                                                 'publish_to_channel:chan')
 
@@ -57,13 +59,13 @@ class TestDistributedConnectionManager(unittest.TestCase):
         conn.on_open()
         connman = self.connman
         connman.bind_connection_to_uid(conn, 222)
-        connman.add_connection_to_channel(conn, 'ccc', False)
+        connman.add_connection_to_channel(conn, 'ccc')
         connman.remove_connection(conn)
         self.assertEqual(set(), connman._connections)
         self.assertEqual({}, connman._connection_to_uid)
         self.assertEqual({}, connman._uid_to_connection)
-        self.assertEqual({}, connman._channels_to_connections)
-        self.assertEqual({}, connman._connections_to_channels)
+        self.assertEqual({}, connman._channel_to_connections)
+        self.assertEqual({}, connman._connection_to_channels)
         self.assertEqual([
             call(zmq.SUBSCRIBE, 'send_by_uid:222'),
             call(zmq.SUBSCRIBE, 'publish_to_channel:ccc'),

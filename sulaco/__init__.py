@@ -1,14 +1,9 @@
 
-
-# errors constants
-SIGN_ERROR = 'sign_error'
-MAX_CONNECTION_ERROR = 'max_connections_error'
-
-# subscribe prefixes
-SEND_BY_UID_PREFIX = 'send_by_uid:'
-PUBLISH_TO_CHANNEL_PREFIX = 'publish_to_channel:'
-
 LOCATION_CONNECTED_PREFIX = 'location_added:'
 LOCATION_DISCONNECTED_PREFIX = 'location_disconnected:'
-MESSAGE_FROM_LOCATION_PREFIX = 'message_from_location:'
+PUBLIC_MESSAGE_FROM_LOCATION_PREFIX = 'public_message_from_location:'
+PRIVATE_MESSAGE_FROM_LOCATION_PREFIX = 'private_message_from_location:'
 
+# messages
+GET_LOCATIONS_INFO = 'get_locations_info'
+LOCATIONS_INFO = 'locations_info'

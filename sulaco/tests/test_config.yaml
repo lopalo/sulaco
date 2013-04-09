@@ -11,4 +11,12 @@ user:
 
 location_manager:
   pub_address: 'tcp://127.0.0.1:7802'
+  rep_address: 'tcp://127.0.0.1:7803'
+  pull_address: 'tcp://127.0.0.1:7804'
+  max_heartbeat_silence: 10 # seconds
+  heartbeats_checker_period: 0.5 # seconds
+
+
+location:
+  heartbeat_period: 1 # seconds
 

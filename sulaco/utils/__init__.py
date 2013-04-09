@@ -24,3 +24,18 @@ class Config(object):
     def __getitem__(self, name):
         return self._dct[name]
 
+
+class Sender(object):
+
+    def __init__(self, send, path=tuple()):
+        assert callable(send), send
+        self._send = send
+        self._path = path
+
+    def __getattr__(self, name):
+        return Sender(self._send, self._path + (name,))
+
+    def __call__(self, **kwargs):
+        message = dict(kwargs=kwargs, path='.'.join(self._path))
+        self._send(message)
+

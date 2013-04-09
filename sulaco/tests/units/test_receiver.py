@@ -1,6 +1,7 @@
 import unittest
+from sulaco.utils import Sender
 from sulaco.utils.receiver import (
-    Sender, dispatch, message_router, message_receiver,
+    dispatch, message_router, message_receiver,
     ReceiverError, SignError, USER_SIGN, INTERNAL_SIGN,
     INTERNAL_USER_SIGN)
 

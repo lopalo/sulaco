@@ -8,7 +8,7 @@ from os import path
 from tornado.iostream import IOStream
 from tornado.ioloop import IOLoop
 from sulaco.outer_server.tcp_server import SimpleProtocol
-from sulaco.utils.receiver import Sender
+from sulaco.utils import Sender
 
 
 class TimeoutError(Exception):
@@ -101,30 +101,63 @@ class BasicFuncTest(unittest.TestCase):
     config = path.join(dirname, 'test_config.yaml')
 
     def setUp(self):
-        self._servers = {}
+        self._servers = []
         self._clients = []
+        self._locations = {}
 
         # setup broker
         p = path.join(self.dirname, '..', 'outer_server', 'message_broker.py')
         args = ['python', p, '-c', self.config]
         self._broker = subprocess.Popen(args)
 
+        # setup location manager
+        p = path.join(self.dirname, '..', 'location_server',
+                                        'location_manager.py')
+        args = ['python', p, '-c', self.config]
+        self._locman = subprocess.Popen(args)
+
     def tearDown(self):
-        for s in self._servers.values():
+        for s in self._servers:
             s.terminate()
+        for l in self._locations.values():
+            l.terminate()
         self._broker.terminate()
+        self._locman.terminate()
         for c in self._clients:
             c.close()
 
-    def run_server(self, port, max_conn=5):
-        assert port not in self._servers
-        port = str(port)
-        max_conn = str(max_conn)
-        p = path.join(self.dirname, 'test_server.py')
-        args = ['python', p, '-p', port, '-mc', max_conn, '-c', self.config]
-        s = subprocess.Popen(args)
-        self._servers[port] = s
-        sleep(.15)
+    def run_server(self, port, max_conn):
+        self.run_servers((port, max_conn))
+
+    def run_servers(self, *infos):
+        for port, max_conn in infos:
+            port = str(port)
+            max_conn = str(max_conn)
+            p = path.join(self.dirname, 'test_server.py')
+            args = ['python', p, '-p', port, '-mc',
+                    max_conn, '-c', self.config]
+            s = subprocess.Popen(args)
+            self._servers.append(s)
+        sleep(.3)
+
+    def run_location(self, ident, pub, pull):
+        self.run_locations((ident, pub, pull))
+
+    def run_locations(self, *infos):
+        for ident, pub, pull in infos:
+            assert ident not in self._locations
+            p = path.join(self.dirname, 'test_location.py')
+            args = ['python', p,
+                    '-pub', pub,
+                    '-pull', pull,
+                    '-ident', ident,
+                    '-c', self.config]
+            l = subprocess.Popen(args)
+            self._locations[ident] = l
+        sleep(.3)
+
+    def shutdown_location(self, ident):
+        self._locations.pop(ident).terminate()
 
     def client(self):
         c = BlockingClient()

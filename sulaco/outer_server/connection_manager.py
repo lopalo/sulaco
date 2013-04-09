@@ -3,9 +3,13 @@ from functools import partial
 
 import zmq
 
-from sulaco import (SIGN_ERROR, MAX_CONNECTION_ERROR,
-                    SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX)
-from sulaco.utils.receiver import Sender, dispatch, SignError, USER_SIGN
+from sulaco import (PUBLIC_MESSAGE_FROM_LOCATION_PREFIX,
+                    PRIVATE_MESSAGE_FROM_LOCATION_PREFIX)
+from sulaco.outer_server import (
+    SIGN_ERROR, MAX_CONNECTION_ERROR,
+    SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX)
+from sulaco.utils import Sender
+from sulaco.utils.receiver import dispatch, SignError, USER_SIGN
 
 
 class ConnectionHandler(object):
@@ -51,14 +55,14 @@ class ConnectionHandler(object):
 
 class ConnectionManager(object):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self._connections = set()
 
         self._uid_to_connection = {}
         self._connection_to_uid = {}
 
-        self._channels_to_connections = defaultdict(set)
-        self._connections_to_channels = defaultdict(set)
+        self._channel_to_connections = defaultdict(set)
+        self._connection_to_channels = defaultdict(set)
 
     def add_connection(self, conn):
         assert conn not in self._connections, 'connection already registered'
@@ -72,25 +76,25 @@ class ConnectionManager(object):
 
     def add_connection_to_channel(self, conn, channel):
         assert conn in self._connections, 'unknown connection'
-        self._connections_to_channels[conn].add(channel)
-        self._channels_to_connections[channel].add(conn)
+        self._connection_to_channels[conn].add(channel)
+        self._channel_to_connections[channel].add(conn)
 
     def remove_connection_from_channel(self, conn, channel):
-        self._connections_to_channels[conn].remove(channel)
-        self._channels_to_connections[channel].remove(conn)
-        if not self._channels_to_connections[channel]:
-            del self._channels_to_connections[channel]
+        self._connection_to_channels[conn].remove(channel)
+        self._channel_to_connections[channel].remove(conn)
+        if not self._channel_to_connections[channel]:
+            del self._channel_to_connections[channel]
 
     def remove_connection(self, conn):
         self._connections.remove(conn)
         uid = self._connection_to_uid.pop(conn, None)
         if uid is not None:
             del self._uid_to_connection[uid]
-        channels = self._connections_to_channels.pop(conn, [])
+        channels = self._connection_to_channels.pop(conn, [])
         for channel in channels:
-            self._channels_to_connections[channel].remove(conn)
-            if not self._channels_to_connections[channel]:
-                del self._channels_to_connections[channel]
+            self._channel_to_connections[channel].remove(conn)
+            if not self._channel_to_connections[channel]:
+                del self._channel_to_connections[channel]
 
     def send_by_uid(self, uid, msg):
         conn = self._uid_to_connection.get(uid)
@@ -105,10 +109,10 @@ class ConnectionManager(object):
         send = partial(self.send_by_uid, uid)
         return Sender(send)
 
-    def publish_to_channel(self, channel, msg):
-        if channel not in self._channels_to_connections:
+    def publish_to_channel(self, channel, msg, **kwargs):
+        if channel not in self._channel_to_connections:
             return
-        for conn in self._channels_to_connections[channel]:
+        for conn in self._channel_to_connections[channel]:
             conn.send(msg)
 
     def cs(self, channel, locally=True):
@@ -116,6 +120,16 @@ class ConnectionManager(object):
 
         send = partial(self.publish_to_channel, channel, locally=locally)
         return Sender(send)
+
+    def publish_to_all(self, msg):
+        for conn in self._connections:
+            conn.send(msg)
+
+    @property
+    def alls(self):
+        """ Returns sender that publishes to all connections"""
+
+        return Sender(self.publish_to_all)
 
     @property
     def connections_count(self):
@@ -127,11 +141,10 @@ class ConnectionManager(object):
 
 class DistributedConnectionManager(ConnectionManager):
 
-    def __init__(self, pub_socket, sub_socket):
-        super(DistributedConnectionManager, self).__init__()
-        self._pub_socket = pub_socket
-        self._sub_socket = sub_socket
-        self._local_channels = set()
+    def __init__(self, **kwargs):
+        super(DistributedConnectionManager, self).__init__(**kwargs)
+        self._pub_socket = kwargs['pub_socket']
+        self._sub_socket = kwargs['sub_socket']
 
     def bind_connection_to_uid(self, conn, uid):
         super(DistributedConnectionManager,
@@ -139,24 +152,15 @@ class DistributedConnectionManager(ConnectionManager):
         topic = SEND_BY_UID_PREFIX + str(uid)
         self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
 
-    def add_connection_to_channel(self, conn, channel, locally=True):
+    def add_connection_to_channel(self, conn, channel):
         super(DistributedConnectionManager,
                 self).add_connection_to_channel(conn, channel)
-        if locally:
-            #TODO: write test
-            self._local_channels.add(channel)
-            return
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
         self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
 
     def remove_connection_from_channel(self, conn, channel):
         super(DistributedConnectionManager,
                 self).remove_connection_from_channel(conn, channel)
-        if channel in self._local_channels:
-            #TODO: write test
-            if channel not in self._channels_to_connections:
-                self._local_channels.remove(channel)
-            return
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
         self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
 
@@ -165,13 +169,11 @@ class DistributedConnectionManager(ConnectionManager):
         if uid is not None:
             topic = SEND_BY_UID_PREFIX + str(uid)
             self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
-        channels = self._connections_to_channels.get(conn, [])
+        channels = self._connection_to_channels.get(conn, [])
         for channel in channels:
             topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
             self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
         super(DistributedConnectionManager, self).remove_connection(conn)
-        #TODO: write test
-        self._local_channels.intersection_update(self._channels_to_connections)
 
     def send_by_uid(self, uid, msg):
         sent = super(DistributedConnectionManager, self).send_by_uid(uid, msg)
@@ -191,4 +193,37 @@ class DistributedConnectionManager(ConnectionManager):
         self._pub_socket.send(topic, zmq.SNDMORE)
         self._pub_socket.send_json(msg)
 
+
+class LocationMixin(object):
+    #TODO: unit tests
+
+    def __init__(self, **kwargs):
+        self._locs_sub_socket = kwargs['locations_sub_socket']
+        self._uid_to_location = {}
+        self._location_to_uids = {}
+
+    def add_user_to_location(self, location, uid):
+        #TODO: add to dicts
+        topic = ':'.join(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
+                                        location, str(uid))
+        self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
+        topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + location
+        self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
+
+    def remove_user_from_location(self, location, uid):
+        #TODO: remove from dicts
+        topic = ':'.join(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
+                                        location, str(uid))
+        self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
+        topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + location
+        self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
+
+    def remove_connection(self, conn):
+        uid = self._connection_to_uid.get(conn, None)
+        super(LocationMixin, self).remove_connection(conn)
+        #TODO: implement
+
+    def publish_to_location(self, location):
+        #TODO: implement
+        pass
 

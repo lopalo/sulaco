@@ -2,21 +2,6 @@ import json
 from functools import wraps
 
 
-class Sender(object):
-
-    def __init__(self, send, path=tuple()):
-        assert callable(send), send
-        self._send = send
-        self._path = path
-
-    def __getattr__(self, name):
-        return Sender(self._send, self._path + (name,))
-
-    def __call__(self, **kwargs):
-        message = dict(kwargs=kwargs, path='.'.join(self._path))
-        self._send(message)
-
-
 MESSAGE_ROUTER = '__message_router__'
 MESSAGE_RECEIVER = '__message_receiver__'
 
@@ -74,7 +59,6 @@ def dispatch(obj, index, path, sign, kwargs):
 
 
 def message_router(sign=None):
-    #TODO: implement as context manager
     assert sign in SIGNS, "unknown sign '{}'".format(sign)
     def _message_router(func):
         func.__sign__ = sign

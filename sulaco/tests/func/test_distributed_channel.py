@@ -4,13 +4,11 @@ from sulaco.tests.test_tools import BasicFuncTest
 class TestDistributedChannel(BasicFuncTest):
 
     def runTest(self):
-        self.run_server(7770, 5)
+        self.run_servers((7770, 5), (7773, 5))
 
         c1 = self.client()
         c1.connect(7770)
         c1.s.channels.subscribe(channel='foo_channel')
-
-        self.run_server(7773, 5)
 
         c2 = self.client()
         c2.connect(7773)
