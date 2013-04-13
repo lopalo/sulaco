@@ -3,7 +3,6 @@ import yaml
 
 class Config(object):
 
-
     def __init__(self, dct, is_root):
         self._dct = dct
         self.__dict__.update(dct)
@@ -38,4 +37,18 @@ class Sender(object):
     def __call__(self, **kwargs):
         message = dict(kwargs=kwargs, path='.'.join(self._path))
         self._send(message)
+
+
+class InstanceError(Exception):
+
+    def __init__(self, name, cls):
+        text = "'{}' should be an instance of {}".format(name, cls)
+        super(InstanceError, self).__init__(text)
+
+
+class SubclassError(Exception):
+
+    def __init__(self, name, cls):
+        text = "'{}' should be a subclass of {}".format(name, cls)
+        super(SubclassError, self).__init__(text)
 

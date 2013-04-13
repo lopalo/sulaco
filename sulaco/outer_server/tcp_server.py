@@ -4,15 +4,16 @@ from tornado.netutil import TCPServer as BasicTCPServer
 
 from sulaco.outer_server.connection_manager import ConnectionHandler
 from sulaco.outer_server import MAX_CONNECTION_ERROR
+from sulaco.utils import SubclassError
 
 
 class TCPServer(BasicTCPServer):
 
     def setup(self, protocol, connman, root, max_conn=None):
         if not issubclass(protocol, ConnectionHandler):
-            raise Exception('Should be a subclass of ConnectionHandler')
+            raise SubclassError('protocol', ConnectionHandler)
         if not issubclass(protocol, ABCProtocol):
-            raise Exception('Should be a subclass of ABCProtocol')
+            raise SubclassError('protocol', ABCProtocol)
         self._protocol = protocol
         self._connman = connman
         self._root = root

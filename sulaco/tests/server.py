@@ -56,7 +56,7 @@ class Root(ABCRoot):
         user = self._users[uid] if uid is not None else None
         loc_name = kwargs.get('location') or user.location
         socket = self._msgman.loc_input_sockets[loc_name]
-        #TODO: implement autosave for user using contextmanager
+        #TODO: implement final actions using coroutine
         return Location(loc_name, user, socket, self._connman)
 
     def location_added(self, loc_id):

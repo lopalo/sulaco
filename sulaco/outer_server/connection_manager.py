@@ -195,25 +195,30 @@ class DistributedConnectionManager(ConnectionManager):
 
 
 class LocationMixin(object):
-    #TODO: unit tests
 
     def __init__(self, **kwargs):
+        super(LocationMixin, self).__init__(**kwargs)
         self._locs_sub_socket = kwargs['locations_sub_socket']
         self._uid_to_location = {}
-        self._location_to_uids = {}
+        self._location_to_uids = defaultdict(set)
 
     def add_user_to_location(self, location, uid):
-        #TODO: add to dicts
-        topic = ':'.join(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
-                                        location, str(uid))
+        assert uid in self._uid_to_connection
+        self._uid_to_location[uid] = location
+        self._location_to_uids[location].add(uid)
+        topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
+                                                    location, str(uid))
         self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
         topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + location
         self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
 
     def remove_user_from_location(self, location, uid):
-        #TODO: remove from dicts
-        topic = ':'.join(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
-                                        location, str(uid))
+        del self._uid_to_location[uid]
+        self._location_to_uids[location].remove(uid)
+        if not self._location_to_uids[location]:
+            del self._location_to_uids[location]
+        topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
+                                                    location, str(uid))
         self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
         topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + location
         self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
@@ -221,9 +226,21 @@ class LocationMixin(object):
     def remove_connection(self, conn):
         uid = self._connection_to_uid.get(conn, None)
         super(LocationMixin, self).remove_connection(conn)
-        #TODO: implement
+        if uid is None or uid not in self._uid_to_location:
+            return
+        location = self._uid_to_location[uid]
+        self.remove_user_from_location(location, uid)
 
-    def publish_to_location(self, location):
-        #TODO: implement
-        pass
+    def publish_to_location(self, location, msg):
+        for uid in self._location_to_uids[location]:
+            self._uid_to_connection[uid].send(msg)
+
+    def ls(self, location):
+        """ Returns location's sender """
+
+        send = partial(self.publish_to_location, location)
+        return Sender(send)
+
+
+
 

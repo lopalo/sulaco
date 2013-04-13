@@ -8,7 +8,11 @@ from sulaco import (
     PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
     LOCATION_CONNECTED_PREFIX, LOCATION_DISCONNECTED_PREFIX)
 from sulaco.outer_server import SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX
+from sulaco.utils import InstanceError
 from sulaco.utils.receiver import INTERNAL_SIGN
+from sulaco.outer_server.connection_manager import (
+    DistributedConnectionManager,
+    LocationMixin)
 
 
 def message_handler(prefix):
@@ -24,6 +28,7 @@ class MessageManager(object):
         self._collect_handlers()
         self._config = config
         self.loc_input_sockets = {}
+        self._loc_pub_addresses = {}
         self._context = None
 
     def connect(self):
@@ -49,9 +54,13 @@ class MessageManager(object):
         zmqstream.ZMQStream(self.sub_to_locs).on_recv(self._on_message)
 
     def setup(self, connman, root):
+        if not isinstance(connman, DistributedConnectionManager):
+            raise InstanceError('connman', DistributedConnectionManager)
+        if not isinstance(connman, LocationMixin):
+            raise InstanceError('connman', LocationMixin)
         self._connman = connman
         if not isinstance(root, Root):
-            raise Exception('Should be an instance of Root')
+            raise InstanceError('root', Root)
         self._root = root
 
     def _collect_handlers(self):
@@ -86,12 +95,14 @@ class MessageManager(object):
         push_sock.connect(data['pull_address'])
         self.loc_input_sockets[loc_id] = push_sock
         self.sub_to_locs.connect(data['pub_address'])
+        self._loc_pub_addresses[loc_id] = data['pub_address']
         self._root.location_added(loc_id)
 
     @message_handler(LOCATION_DISCONNECTED_PREFIX)
     def remove_location(self, loc_id, data):
         sock = self.loc_input_sockets.pop(loc_id)
         sock.close()
+        self.sub_to_locs.disconnect(self._loc_pub_addresses.pop(loc_id))
         self._root.location_removed(loc_id)
 
     def _location_dispatch(self, location, uid, msg):
@@ -122,3 +133,4 @@ class Root(object):
     @abstractmethod
     def location_removed(self):
         pass
+
