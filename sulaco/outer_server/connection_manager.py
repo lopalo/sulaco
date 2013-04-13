@@ -9,7 +9,7 @@ from sulaco.outer_server import (
     SIGN_ERROR, MAX_CONNECTION_ERROR,
     SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX)
 from sulaco.utils import Sender
-from sulaco.utils.receiver import dispatch, SignError, USER_SIGN
+from sulaco.utils.receiver import root_dispatch, SignError, USER_SIGN
 
 
 class ConnectionHandler(object):
@@ -38,7 +38,7 @@ class ConnectionHandler(object):
         else:
             sign = None
         try:
-            dispatch(self._root, 0, path, sign, kwargs)
+            root_dispatch(self._root,path, kwargs, sign)
         except SignError:
             #TODO: log
             self._on_sign_error()

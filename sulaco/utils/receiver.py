@@ -1,5 +1,8 @@
 import json
-from functools import wraps
+import types
+from functools import wraps, partial
+
+from tornado.gen import Runner, Task
 
 
 MESSAGE_ROUTER = '__message_router__'
@@ -19,7 +22,14 @@ class SignError(Exception):
     pass
 
 
-def dispatch(obj, index, path, sign, kwargs):
+def root_dispatch(obj, path, kwargs, sign, finish_callback=None):
+    stack = []
+    if finish_callback is not None:
+        stack.append(finish_callback)
+    _dispatch(obj, path, kwargs, sign, 0, stack)
+
+
+def _dispatch(obj, path, kwargs, sign, index, stack):
     """ Additional arguments need add to kwargs dict """
 
     name = path[index]
@@ -53,31 +63,82 @@ def dispatch(obj, index, path, sign, kwargs):
         raise SignError("Need user's sign")
 
     if meth_type == MESSAGE_ROUTER:
-        meth(index, path, sign, kwargs)
+        meth(path, kwargs, sign, index, stack)
     if meth_type == MESSAGE_RECEIVER:
-        meth(**kwargs)
+        meth(kwargs, stack)
 
-
+#TODO: check memory leak
 def message_router(sign=None):
     assert sign in SIGNS, "unknown sign '{}'".format(sign)
+
     def _message_router(func):
         func.__sign__ = sign
         func.__receiver__method__ = MESSAGE_ROUTER
         @wraps(func)
-        def new_func(self, index, path, sign, kwargs):
-            obj = func(self, **kwargs)
-            assert obj is not None
-            dispatch(obj, index+1, path, sign, kwargs)
+        def new_func(self, path, kwargs, sign, index, stack):
+            def next_step(obj, callback=None):
+                if callback is not None:
+                    stack.append(callback)
+                _dispatch(obj, path, kwargs, sign, index + 1, stack)
+
+            def finish_cb(ok=True):
+                if stack:
+                    stack.pop()(ok)
+
+            try:
+                gen = func(self, next_step, **kwargs)
+            except Exception:
+                finish_cb(False)
+                raise
+            if isinstance(gen, types.GeneratorType):
+                runner = SyncRunner(gen, finish_cb)
+                runner.run()
         return new_func
     return _message_router
 
 
 def message_receiver(sign=None):
     assert sign in SIGNS, "unknown sign '{}'".format(sign)
+
     def _message_receiver(func):
         func.__sign__ = sign
         func.__receiver__method__ = MESSAGE_RECEIVER
-        return func
+        @wraps(func)
+        def new_func(self, kwargs, stack):
+            def finish_cb(ok=True):
+                if stack:
+                    stack.pop()(ok)
+
+            try:
+                gen = func(self, **kwargs)
+            except Exception:
+                finish_cb(False)
+                raise
+            if isinstance(gen, types.GeneratorType):
+                runner = SyncRunner(gen, finish_cb)
+                runner.run()
+            else:
+               finish_cb()
+        return new_func
     return _message_receiver
+
+
+class SyncRunner(Runner):
+
+    def __init__(self, gen, finish_callback):
+        super(SyncRunner, self).__init__(gen, lambda: None)
+        self.finish_callback = finish_callback
+
+    def run(self):
+        if self.running or self.finished:
+            return
+        try:
+            super(SyncRunner, self).run()
+        except Exception:
+            if self.finished:
+                self.finish_callback(False)
+            raise
+        if self.finished:
+            self.finish_callback()
 
 

@@ -47,17 +47,17 @@ class Root(ABCRoot):
         self._connman.us(receiver).message_from_user(text=text, uid=uid)
 
     @message_router()
-    def channels(self, **kwargs):
-        return Channels(self._connman)
+    def channels(self, next_step, **kwargs):
+        next_step(Channels(self._connman))
 
     @message_router(INTERNAL_USER_SIGN)
-    def location(self, **kwargs):
+    def location(self, next_step, **kwargs):
         uid = kwargs.get('uid')
         user = self._users[uid] if uid is not None else None
         loc_name = kwargs.get('location') or user.location
         socket = self._msgman.loc_input_sockets[loc_name]
         #TODO: implement final actions using coroutine
-        return Location(loc_name, user, socket, self._connman)
+        next_step(Location(loc_name, user, socket, self._connman))
 
     def location_added(self, loc_id):
         self._connman.alls.location_added(loc_id=loc_id)

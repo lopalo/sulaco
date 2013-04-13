@@ -9,7 +9,7 @@ from sulaco import (
     LOCATION_CONNECTED_PREFIX, LOCATION_DISCONNECTED_PREFIX)
 from sulaco.outer_server import SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX
 from sulaco.utils import InstanceError
-from sulaco.utils.receiver import INTERNAL_SIGN
+from sulaco.utils.receiver import INTERNAL_SIGN, root_dispatch
 from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,
     LocationMixin)
@@ -111,7 +111,7 @@ class MessageManager(object):
         path = path_prefix + path
         kwargs = msg['kwargs']
         #TODO: try-except with logging
-        dispatch(self,_root, 0, path, INTERNAL_SIGN, kwargs)
+        root_dispatch(self,_root, path, kwargs, INTERNAL_SIGN)
 
     @message_handler(PUBLIC_MESSAGE_FROM_LOCATION_PREFIX)
     def location_public(self, location, msg):
