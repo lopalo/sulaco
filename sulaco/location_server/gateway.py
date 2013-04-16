@@ -1,9 +1,16 @@
 import signal
+import json
+
+from functools import partial
 
 import zmq
 from zmq.eventloop.zmqstream import ZMQStream
 from zmq.eventloop.ioloop import IOLoop, PeriodicCallback
 
+from sulaco import (PUBLIC_MESSAGE_FROM_LOCATION_PREFIX,
+                    PRIVATE_MESSAGE_FROM_LOCATION_PREFIX)
+from sulaco.utils import Sender
+from sulaco.utils.receiver import root_dispatch, INTERNAL_SIGN
 from sulaco.location_server import (
     CONNECT_MESSAGE, DISCONNECT_MESSAGE,
     HEARTBEAT_MESSAGE)
@@ -26,7 +33,7 @@ class Gateway(object):
         data = self.data.copy()
         data.update(ident=self._ident,
                     pub_address=pub_address,
-                    pull_address=pub_address)
+                    pull_address=pull_address)
         req_socket.send(CONNECT_MESSAGE, zmq.SNDMORE)
         req_socket.send(self._ident, zmq.SNDMORE)
         req_socket.send_json(data)
@@ -62,12 +69,31 @@ class Gateway(object):
                                                 track=True).wait(2)
 
     def _receive(self, parts):
-        #TODO: dispatch
-        self._root
+        message = json.loads(parts[0])
+        path = message['path'].split('.')
+        kwargs = message['kwargs']
+        root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
+        #TODO: catch exceptions and write them to log
 
-    def private_message(self, uid):
-        pass
+    def private_message(self, uid, msg):
+        topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
+                                                self._ident, str(uid))
+        self._pub_sock.send(topic, zmq.SNDMORE)
+        self._pub_sock.send_json(msg)
 
-    def public_message(self, uid):
-        pass
+    def prs(self, uid):
+        """ Returns private sender """
 
+        send = partial(self.private_message, uid)
+        return Sender(send)
+
+    def public_message(self, msg):
+        topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + self._ident
+        self._pub_sock.send(topic, zmq.SNDMORE)
+        self._pub_sock.send_json(msg)
+
+    @property
+    def pubs(self):
+        """ Returns private sender """
+
+        return Sender(self.public_message)

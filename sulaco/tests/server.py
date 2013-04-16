@@ -10,16 +10,17 @@ from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,
     ConnectionHandler, LocationMixin)
 from sulaco.utils.receiver import (
-    message_receiver, message_router,
+    message_receiver, message_router, Loopback,
     USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN)
-from sulaco.utils import Config
+from sulaco.utils import Config, Sender
 from sulaco.outer_server.message_manager import MessageManager
 from sulaco.outer_server.message_manager import Root as ABCRoot
 
 
-class Root(ABCRoot):
+class Root(ABCRoot, Loopback):
 
     def __init__(self, config, connman, msgman):
+        super(Root, self).__init__()
         self._config = config
         self._connman = connman
         self._msgman = msgman
@@ -35,8 +36,9 @@ class Root(ABCRoot):
         uid = hash(username)
         self._connman.bind_connection_to_uid(conn, uid)
         loc = choice(self._config.user.start_locations)
-        self._users[uid] = User(uid, loc)
+        self._users[uid] = User(username, uid, loc, conn)
         conn.s.sign_id(uid=uid)
+        self.lbs.location.enter(uid=uid, location=loc)
 
     @message_receiver(USER_SIGN)
     def method_signed(self):
@@ -51,12 +53,10 @@ class Root(ABCRoot):
         next_step(Channels(self._connman))
 
     @message_router(INTERNAL_USER_SIGN)
-    def location(self, next_step, **kwargs):
-        uid = kwargs.get('uid')
-        user = self._users[uid] if uid is not None else None
-        loc_name = kwargs.get('location') or user.location
-        socket = self._msgman.loc_input_sockets[loc_name]
-        #TODO: implement final actions using coroutine
+    def location(self, next_step, uid, location=None, **kwargs):
+        user = self._users[uid]
+        loc_name = location or user.location
+        socket = self._msgman.loc_input_sockets.get(loc_name)
         next_step(Location(loc_name, user, socket, self._connman))
 
     def location_added(self, loc_id):
@@ -87,18 +87,29 @@ class Channels(object):
 
 class User(object):
 
-    def __init__(self, uid, location):
+    def __init__(self, username, uid, location, conn):
+        self.username = username
         self.uid = uid
         self.location = location
+        self.conn = conn
+
+    def to_dict(self):
+        return {'username': self.username,
+                'uid': self.uid}
 
 
 class Location(object):
 
     def __init__(self, name, user, loc_input, connman):
-        self.name = loc_name
+        self._name = name
         self._user = user
         self._loc_input = loc_input
         self._connman = connman
+        self.s = Sender(self.send)
+
+    def send(self, msg):
+        msg['uid'] = self._user.uid
+        self._loc_input.send_json(msg)
 
     @message_receiver(USER_SIGN)
     def move_to(self, next_location, **kwargs):
@@ -107,20 +118,27 @@ class Location(object):
         pass
 
     @message_receiver(INTERNAL_SIGN)
-    def enter(self, data, **kwargs):
-        self._user.location = self.name
-        # send to loc
+    def enter(self, **kwargs):
+        if self._loc_input is None:
+            return
+        connman = self._connman
+        user = self._user
+        if user.location != self._name:
+            connman.remove_user_from_location(self._name, user.uid)
+        user.location = self._name
+        connman.add_user_to_location(self._name, user.uid)
+        self.s.enter(user=user.to_dict())
 
     @message_receiver(INTERNAL_SIGN)
-    def init(self, data, **kwargs):
-        pass
+    def init(self, users, **kwargs):
+        self._user.conn.s.init_location(users=users)
 
 
 class Protocol(ConnectionHandler, SimpleProtocol):
     pass
 
 
-class ConnManager(DistributedConnectionManager, LocationMixin):
+class ConnManager(LocationMixin, DistributedConnectionManager):
     pass
 
 

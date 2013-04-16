@@ -2,7 +2,10 @@ import json
 import types
 from functools import wraps, partial
 
+from tornado.ioloop import IOLoop
 from tornado.gen import Runner, Task
+
+from sulaco.utils import Sender
 
 
 MESSAGE_ROUTER = '__message_router__'
@@ -20,13 +23,6 @@ class ReceiverError(Exception):
 
 class SignError(Exception):
     pass
-
-
-def root_dispatch(obj, path, kwargs, sign, finish_callback=None):
-    stack = []
-    if finish_callback is not None:
-        stack.append(finish_callback)
-    _dispatch(obj, path, kwargs, sign, 0, stack)
 
 
 def _dispatch(obj, path, kwargs, sign, index, stack):
@@ -142,3 +138,35 @@ class SyncRunner(Runner):
             self.finish_callback()
 
 
+def root_dispatch(root, path, kwargs, sign):
+    stack = []
+    if isinstance(root, Loopback):
+        stack.append(root.process_loopback_callbacks)
+    _dispatch(root, path, kwargs, sign, 0, stack)
+
+
+class Loopback(object):
+
+    def __init__(self, *args, **kwargs):
+        super(Loopback, self).__init__(*args, **kwargs)
+        self._callbacks = []
+
+    def process_loopback_callbacks(self, ok):
+        ioloop = IOLoop.instance()
+        for cb in self._callbacks:
+            ioloop.add_callback(cb)
+        self._callbacks = []
+
+    def send_loopback(self, message):
+        path = message['path'].split('.')
+        kwargs = message['kwargs']
+        cb = partial(root_dispatch, self, path, kwargs, INTERNAL_SIGN)
+        self._callbacks.append(cb)
+
+    @property
+    def lbs(self):
+        """ Returns sender that will schedule a dispatch of message"""
+
+        return Sender(self.send_loopback)
+
+#TODO: implement ProxyReceiver with default_receiver that takes rest of the path

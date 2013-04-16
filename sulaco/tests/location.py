@@ -1,12 +1,29 @@
 import argparse
 
 from sulaco.utils import Config
+from sulaco.utils.receiver import message_receiver, INTERNAL_SIGN
 from sulaco.location_server.gateway import Gateway
+
+class Root(object):
+
+    def __init__(self, gateway, config):
+        self._gateway = gateway
+        self._config = config
+        self._users = []
+
+    @message_receiver(INTERNAL_SIGN)
+    def enter(self, user):
+        uid = user['uid']
+        self._users.append(user)
+        self._gateway.prs(uid).init(users=self._users)
+        self._gateway.pubs.user_connected(user=user)
 
 
 def main(options):
     config = Config.load_yaml(options.config)
     gateway = Gateway(config, options.ident)
+    root = Root(gateway, config)
+    gateway.setup(root)
     connected = gateway.connect(options.pub_address, options.pull_address)
     if not connected:
         return

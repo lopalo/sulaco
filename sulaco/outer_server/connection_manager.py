@@ -38,7 +38,7 @@ class ConnectionHandler(object):
         else:
             sign = None
         try:
-            root_dispatch(self._root,path, kwargs, sign)
+            root_dispatch(self._root, path, kwargs, sign)
         except SignError:
             #TODO: log
             self._on_sign_error()
@@ -76,6 +76,8 @@ class ConnectionManager(object):
 
     def add_connection_to_channel(self, conn, channel):
         assert conn in self._connections, 'unknown connection'
+        error = 'connection already in channel'
+        assert channel not in self._connection_to_channels[conn], error
         self._connection_to_channels[conn].add(channel)
         self._channel_to_connections[channel].add(conn)
 
@@ -204,6 +206,7 @@ class LocationMixin(object):
 
     def add_user_to_location(self, location, uid):
         assert uid in self._uid_to_connection
+        assert uid not in self._uid_to_location
         self._uid_to_location[uid] = location
         self._location_to_uids[location].add(uid)
         topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
