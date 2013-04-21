@@ -6,23 +6,31 @@ from sulaco.location_server.gateway import Gateway
 
 class Root(object):
 
-    def __init__(self, gateway, config):
+    def __init__(self, gateway, ident, config):
         self._gateway = gateway
         self._config = config
-        self._users = []
+        self._users = {}
+        self._ident = ident
 
     @message_receiver(INTERNAL_SIGN)
     def enter(self, user):
         uid = user['uid']
-        self._users.append(user)
-        self._gateway.prs(uid).init(users=self._users)
+        self._users[uid] = user
+        self._gateway.prs(uid).init(users=list(self._users.values()),
+                                    ident=self._ident)
         self._gateway.pubs.user_connected(user=user)
+
+    @message_receiver(INTERNAL_SIGN)
+    def move_to(self, uid, location):
+        del self._users[uid]
+        self._gateway.prs(uid).enter(location=location)
+        self._gateway.pubs.user_disconnected(uid=uid)
 
 
 def main(options):
     config = Config.load_yaml(options.config)
     gateway = Gateway(config, options.ident)
-    root = Root(gateway, config)
+    root = Root(gateway, options.ident, config)
     gateway.setup(root)
     connected = gateway.connect(options.pub_address, options.pull_address)
     if not connected:

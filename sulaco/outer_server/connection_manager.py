@@ -212,7 +212,7 @@ class LocationMixin(object):
         topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
                                                     location, str(uid))
         self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
-        topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + location
+        topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + str(location)
         self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
 
     def remove_user_from_location(self, location, uid):
@@ -223,7 +223,7 @@ class LocationMixin(object):
         topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
                                                     location, str(uid))
         self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
-        topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + location
+        topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + str(location)
         self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
 
     def remove_connection(self, conn):

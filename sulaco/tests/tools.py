@@ -95,6 +95,9 @@ class BlockingClient(SimpleProtocol):
         self._result = msg
         self._loop.stop()
 
+    def flush(self):
+        self._buffer = deque()
+
 
 class BasicFuncTest(unittest.TestCase):
     dirname = path.dirname(path.abspath(__file__))

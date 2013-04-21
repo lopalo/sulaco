@@ -105,24 +105,25 @@ class MessageManager(object):
         self.sub_to_locs.disconnect(self._loc_pub_addresses.pop(loc_id))
         self._root.location_removed(loc_id)
 
-    def _location_dispatch(self, location, uid, msg):
-        path_prefix = (self._config.outer_server.
-                        location_handler_path.split('.'))
-        path = msg['path'].split('.')
-        path = path_prefix + path
-        kwargs = msg['kwargs']
-        kwargs['uid'] = int(uid)
-        #TODO: try-except with logging
-        root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
-
     @message_handler(PUBLIC_MESSAGE_FROM_LOCATION_PREFIX)
     def location_public(self, location, msg):
+        path_prefix = self._config.outer_server.client_location_handler_path
+        msg['path'] = '.'.join((path_prefix, msg['path']))
         self._connman.publish_to_location(location, msg)
 
     @message_handler(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX)
     def location_private(self, location_uid, msg):
         location, uid = location_uid.split(':')
-        self._location_dispatch(location, uid, msg)
+        path_prefix = (self._config.outer_server.
+                        location_handler_path.split('.'))
+        path = msg['path'].split('.')
+        path = path_prefix + path
+        kwargs = msg['kwargs']
+        if not 'location' in kwargs:
+            kwargs['location'] = location
+        kwargs['uid'] = int(uid)
+        #TODO: try-except with logging
+        root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
 
 
 class Root(object):

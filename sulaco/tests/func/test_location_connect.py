@@ -19,16 +19,19 @@ class TestLocationConnect(BasicFuncTest):
 
         c1.s.sign_id(username='user1')
         self.assertEqual({'users': [{'uid': -2878283150406289529,
-                                     'username': 'user1'}]},
-                          c1.recv(path_prefix='init_location')['kwargs'])
+                                     'username': 'user1'}],
+                          'ident': 'loc_X'},
+                          c1.recv(path_prefix='location.init')['kwargs'])
 
 
         c2.s.sign_id(username='user2')
-        self.assertEqual({'users': [{'uid': -2878283150406289529,
-                                     'username': 'user1'},
-                                    {'uid': -2878283150406289532,
-                                     'username': 'user2'}]},
-                          c2.recv(path_prefix='init_location')['kwargs'])
-        self.assertEqual({'user': {'username': 'user1',
-                                   'uid': -2878283150406289529}},
-                          c1.recv(path_prefix='user_connected')['kwargs'])
+        self.assertEqual({'users': [{'uid': -2878283150406289532,
+                                     'username': 'user2'},
+                                    {'uid': -2878283150406289529,
+                                     'username': 'user1'}],
+                          'ident': 'loc_X'},
+                          c2.recv(path_prefix='location.init')['kwargs'])
+        self.assertEqual(
+            {'user': {'username': 'user1', 'uid': -2878283150406289529}},
+            c1.recv(path_prefix='location.user_connected')['kwargs'])
+

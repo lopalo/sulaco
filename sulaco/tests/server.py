@@ -32,11 +32,11 @@ class Root(ABCRoot, Loopback):
         conn.s.echo(text=text)
 
     @message_receiver()
-    def sign_id(self, username, conn, **kwargs):
+    def sign_id(self, username, conn, loc=None, **kwargs):
         uid = hash(username)
         self._connman.bind_connection_to_uid(conn, uid)
-        loc = choice(self._config.user.start_locations)
-        self._users[uid] = User(username, uid, loc, conn)
+        loc = loc or choice(self._config.user.start_locations)
+        self._users[uid] = User(username, uid, None, conn, self._config)
         conn.s.sign_id(uid=uid)
         self.lbs.location.enter(uid=uid, location=loc)
 
@@ -87,11 +87,14 @@ class Channels(object):
 
 class User(object):
 
-    def __init__(self, username, uid, location, conn):
+    def __init__(self, username, uid, location, conn, config):
         self.username = username
         self.uid = uid
         self.location = location
         self.conn = conn
+        path_prefix = tuple(config.outer_server.
+                            client_location_handler_path.split('.'))
+        self.ls = Sender(conn.send, path_prefix)
 
     def to_dict(self):
         return {'username': self.username,
@@ -113,9 +116,7 @@ class Location(object):
 
     @message_receiver(USER_SIGN)
     def move_to(self, next_location, **kwargs):
-        # TODO: push to location > check in location and exit > push to message_manager >
-        #       enter location (meth 'enter') > init in new location > init meth
-        pass
+        self.s.move_to(uid=self._user.uid, location=next_location)
 
     @message_receiver(INTERNAL_SIGN)
     def enter(self, **kwargs):
@@ -123,15 +124,15 @@ class Location(object):
             return
         connman = self._connman
         user = self._user
-        if user.location != self._name:
-            connman.remove_user_from_location(self._name, user.uid)
+        if user.location is not None and user.location != self._name:
+            connman.remove_user_from_location(user.location, user.uid)
         user.location = self._name
         connman.add_user_to_location(self._name, user.uid)
         self.s.enter(user=user.to_dict())
 
     @message_receiver(INTERNAL_SIGN)
-    def init(self, users, **kwargs):
-        self._user.conn.s.init_location(users=users)
+    def init(self, users, ident, **kwargs):
+        self._user.ls.init(users=users, ident=ident)
 
 
 class Protocol(ConnectionHandler, SimpleProtocol):

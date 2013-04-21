@@ -5,6 +5,7 @@ message_broker:
 
 outer_server:
   location_handler_path: location
+  client_location_handler_path: location
 
 user:
   start_locations: [loc_X]
