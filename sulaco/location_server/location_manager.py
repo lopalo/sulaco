@@ -26,24 +26,26 @@ def start_location_manager(config):
         del locations[loc_id]
         del last_heartbeats[loc_id]
         msg = LOCATION_DISCONNECTED_PREFIX + loc_id
-        pub_sock.send_multipart([msg, 'null'])
+        pub_sock.send_multipart([msg.encode('utf-8'), b'null'])
 
     ### handlers ###
 
     def request(stream, parts):
-        msg = parts[0]
+        msg = parts[0].decode('utf-8')
         if msg == CONNECT_MESSAGE:
             loc_id, data = parts[1:]
+            loc_id = loc_id.decode('utf-8')
             if loc_id in locations:
                 stream.send_json(False)
                 return
             stream.send_json(True)
-            pub_sock.send(LOCATION_CONNECTED_PREFIX + loc_id, zmq.SNDMORE)
+            topic = (LOCATION_CONNECTED_PREFIX + loc_id).encode('utf-8')
+            pub_sock.send(topic, zmq.SNDMORE)
             pub_sock.send(data)
-            locations[loc_id] = json.loads(data)
+            locations[loc_id] = json.loads(data.decode('utf-8'))
             last_heartbeats[loc_id] = time()
         elif msg == GET_LOCATIONS_INFO:
-            stream.send(LOCATIONS_INFO, zmq.SNDMORE)
+            stream.send(LOCATIONS_INFO.encode('utf-8'), zmq.SNDMORE)
             stream.send_json(locations)
         else:
             #TODO: log unknown message
@@ -51,6 +53,8 @@ def start_location_manager(config):
 
     def input(parts):
         msg, loc_id = parts
+        msg = msg.decode('utf-8')
+        loc_id = loc_id.decode('utf-8')
         if msg == HEARTBEAT_MESSAGE:
             if loc_id not in locations:
                 #TODO: log unknown location

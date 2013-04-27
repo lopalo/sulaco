@@ -152,29 +152,29 @@ class DistributedConnectionManager(ConnectionManager):
         super(DistributedConnectionManager,
                 self).bind_connection_to_uid(conn, uid)
         topic = SEND_BY_UID_PREFIX + str(uid)
-        self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
+        self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic.encode('utf-8'))
 
     def add_connection_to_channel(self, conn, channel):
         super(DistributedConnectionManager,
                 self).add_connection_to_channel(conn, channel)
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
-        self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
+        self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic.encode('utf-8'))
 
     def remove_connection_from_channel(self, conn, channel):
         super(DistributedConnectionManager,
                 self).remove_connection_from_channel(conn, channel)
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
-        self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
+        self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic.encode('utf-8'))
 
     def remove_connection(self, conn):
         uid = self._connection_to_uid.get(conn, None)
         if uid is not None:
             topic = SEND_BY_UID_PREFIX + str(uid)
-            self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
+            self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic.encode('utf-8'))
         channels = self._connection_to_channels.get(conn, [])
         for channel in channels:
             topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
-            self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
+            self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic.encode('utf-8'))
         super(DistributedConnectionManager, self).remove_connection(conn)
 
     def send_by_uid(self, uid, msg):
@@ -182,7 +182,7 @@ class DistributedConnectionManager(ConnectionManager):
         if sent:
             return
         topic = SEND_BY_UID_PREFIX + str(uid)
-        self._pub_socket.send(topic, zmq.SNDMORE)
+        self._pub_socket.send(topic.encode('utf-8'), zmq.SNDMORE)
         self._pub_socket.send_json(msg)
 
     def publish_to_channel(self, channel, msg, locally=True):
@@ -192,7 +192,7 @@ class DistributedConnectionManager(ConnectionManager):
             # to prevent of infinite broadcast
             return
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
-        self._pub_socket.send(topic, zmq.SNDMORE)
+        self._pub_socket.send(topic.encode('utf-8'), zmq.SNDMORE)
         self._pub_socket.send_json(msg)
 
 
@@ -211,9 +211,9 @@ class LocationMixin(object):
         self._location_to_uids[location].add(uid)
         topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
                                                     location, str(uid))
-        self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
+        self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic.encode('utf-8'))
         topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + str(location)
-        self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
+        self._locs_sub_socket.setsockopt(zmq.SUBSCRIBE, topic.encode('utf-8'))
 
     def remove_user_from_location(self, location, uid):
         del self._uid_to_location[uid]
@@ -222,9 +222,11 @@ class LocationMixin(object):
             del self._location_to_uids[location]
         topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
                                                     location, str(uid))
-        self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
+        self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE,
+                                         topic.encode('utf-8'))
         topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + str(location)
-        self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
+        self._locs_sub_socket.setsockopt(zmq.UNSUBSCRIBE,
+                                         topic.encode('utf-8'))
 
     def remove_connection(self, conn):
         uid = self._connection_to_uid.get(conn, None)

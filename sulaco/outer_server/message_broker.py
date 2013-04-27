@@ -8,7 +8,7 @@ def forward(config):
 
     sub = context.socket(zmq.SUB)
     sub.bind(config.message_broker.sub_address)
-    sub.setsockopt(zmq.SUBSCRIBE, '')
+    sub.setsockopt(zmq.SUBSCRIBE, b'')
 
     pub = context.socket(zmq.PUB)
     pub.bind(config.message_broker.pub_address)

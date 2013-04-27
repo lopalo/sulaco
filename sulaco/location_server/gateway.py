@@ -34,8 +34,8 @@ class Gateway(object):
         data.update(ident=self._ident,
                     pub_address=pub_address,
                     pull_address=pull_address)
-        req_socket.send(CONNECT_MESSAGE, zmq.SNDMORE)
-        req_socket.send(self._ident, zmq.SNDMORE)
+        req_socket.send(CONNECT_MESSAGE.encode('utf-8'), zmq.SNDMORE)
+        req_socket.send(self._ident.encode('utf-8'), zmq.SNDMORE)
         req_socket.send_json(data)
         connected = req_socket.recv_json()
         if not connected:
@@ -54,7 +54,9 @@ class Gateway(object):
 
     def start(self):
         def heartbeat():
-            self._push_to_man.send_multipart([HEARTBEAT_MESSAGE, self._ident])
+            parts = (HEARTBEAT_MESSAGE.encode('utf-8'),
+                     self._ident.encode('utf-8'))
+            self._push_to_man.send_multipart(parts)
         period = self._config.location.heartbeat_period * 1000
         PeriodicCallback(heartbeat, period).start()
 
@@ -64,12 +66,14 @@ class Gateway(object):
         try:
             IOLoop.instance().start()
         finally:
-            parts = DISCONNECT_MESSAGE, self._ident
+            parts = (DISCONNECT_MESSAGE.encode('utf-8'),
+                     self._ident.encode('utf-8'))
             self._push_to_man.send_multipart(parts, copy=False,
                                                 track=True).wait(2)
 
     def _receive(self, parts):
-        message = json.loads(parts[0])
+        assert len(parts) == 1
+        message = json.loads(parts[0].decode('utf-8'))
         path = message['path'].split('.')
         kwargs = message['kwargs']
         root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
@@ -78,7 +82,7 @@ class Gateway(object):
     def private_message(self, uid, msg):
         topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
                                                 self._ident, str(uid))
-        self._pub_sock.send(topic, zmq.SNDMORE)
+        self._pub_sock.send(topic.encode('utf-8'), zmq.SNDMORE)
         self._pub_sock.send_json(msg)
 
     def prs(self, uid):
@@ -89,7 +93,7 @@ class Gateway(object):
 
     def public_message(self, msg):
         topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + self._ident
-        self._pub_sock.send(topic, zmq.SNDMORE)
+        self._pub_sock.send(topic.encode('utf-8'), zmq.SNDMORE)
         self._pub_sock.send_json(msg)
 
     @property
@@ -97,3 +101,4 @@ class Gateway(object):
         """ Returns private sender """
 
         return Sender(self.public_message)
+

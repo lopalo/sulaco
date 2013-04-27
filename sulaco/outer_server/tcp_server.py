@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import json
-from tornado.netutil import TCPServer as BasicTCPServer
+from tornado.tcpserver import TCPServer as BasicTCPServer
 
 from sulaco.outer_server.connection_manager import ConnectionHandler
 from sulaco.outer_server import MAX_CONNECTION_ERROR
@@ -30,9 +30,7 @@ class TCPServer(BasicTCPServer):
                 conn.send_and_close()
 
 
-class ABCProtocol(object):
-    __metaclass__ = ABCMeta
-
+class ABCProtocol(object, metaclass=ABCMeta):
     @abstractmethod
     def send(self, message):
         pass
@@ -61,13 +59,13 @@ class SimpleProtocol(ABCProtocol):
     def _on_body(self, data):
         if not self._stream.closed():
             self._stream.read_bytes(self._header_bytes, self._on_header)
-        self.on_message(json.loads(data))
+        self.on_message(json.loads(data.decode('utf-8')))
 
     def send(self, message):
         data = json.dumps(message)
         dlen = str(len(data))
         data = (self._header_bytes - len(dlen)) * '0' + dlen + data
-        self._stream.write(data, self.on_sent)
+        self._stream.write(data.encode('utf-8'), self.on_sent)
 
     def connect(self, address):
         self._stream.connect(address, self.on_open)

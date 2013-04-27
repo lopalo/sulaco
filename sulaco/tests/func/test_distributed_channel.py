@@ -21,16 +21,16 @@ class TestDistributedChannel(BasicFuncTest):
 
         c2.s.channels.publish(channel='foo_channel', text='hello')
 
-        self.assertEqual({u'path': u'message_from_channel',
-                          u'kwargs': {u'text': u'hello',
-                                      u'channel': 'foo_channel'}},
+        self.assertEqual({'path': 'message_from_channel',
+                          'kwargs': {'text': 'hello',
+                                     'channel': 'foo_channel'}},
                           c2.recv())
-        self.assertEqual({u'path': u'message_from_channel',
-                          u'kwargs': {u'text': u'hello',
-                                      u'channel': 'foo_channel'}},
+        self.assertEqual({'path': 'message_from_channel',
+                          'kwargs': {'text': 'hello',
+                                     'channel': 'foo_channel'}},
                           c3.recv())
-        self.assertEqual({u'path': u'message_from_channel',
-                          u'kwargs': {u'text': u'hello',
-                                      u'channel': 'foo_channel'}},
+        self.assertEqual({'path': 'message_from_channel',
+                          'kwargs': {'text': 'hello',
+                                     'channel': 'foo_channel'}},
                           c1.recv())
 

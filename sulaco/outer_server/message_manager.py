@@ -46,7 +46,7 @@ class MessageManager(object):
         # setup connection with location_manager
         self._sub_to_locman = context.socket(zmq.SUB)
         self._sub_to_locman.connect(config.location_manager.pub_address)
-        self._sub_to_locman.setsockopt(zmq.SUBSCRIBE, '')
+        self._sub_to_locman.setsockopt(zmq.SUBSCRIBE, b'')
         zmqstream.ZMQStream(self._sub_to_locman).on_recv(self._on_message)
 
         # create socket for receiving of messages from locations
@@ -75,8 +75,8 @@ class MessageManager(object):
 
     def _on_message(self, parts):
         topic, body = parts
-        prefix, data = topic.split(':', 1)
-        msg = json.loads(body)
+        prefix, data = topic.decode('utf-8').split(':', 1)
+        msg = json.loads(body.decode('utf-8'))
         #TODO: try-except and log
         self._handlers[prefix + ':'](data, msg)
 
@@ -126,9 +126,7 @@ class MessageManager(object):
         root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
 
 
-class Root(object):
-    __metaclass__ = ABCMeta
-
+class Root(object, metaclass=ABCMeta):
     @abstractmethod
     def location_added(self):
         pass

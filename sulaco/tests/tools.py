@@ -88,9 +88,11 @@ class BlockingClient(SimpleProtocol):
             self._buffer.append(msg)
             return
         if not msg['path'].startswith(self._path_prefix):
+            self._buffer.append(msg)
             return
         for k, v in self._kwargs_contain.items():
             if msg['kwargs'].get(k) != v:
+                self._buffer.append(msg)
                 return
         self._result = msg
         self._loop.stop()
@@ -157,7 +159,7 @@ class BasicFuncTest(unittest.TestCase):
                     '-c', self.config]
             l = subprocess.Popen(args)
             self._locations[ident] = l
-        sleep(.3)
+        sleep(.4)
 
     def shutdown_location(self, ident):
         self._locations.pop(ident).terminate()

@@ -63,7 +63,7 @@ def _dispatch(obj, path, kwargs, sign, index, stack):
     if meth_type == MESSAGE_RECEIVER:
         meth(kwargs, stack)
 
-#TODO: check memory leak
+#TODO: rewrite using yield from
 def message_router(sign=None):
     assert sign in SIGNS, "unknown sign '{}'".format(sign)
 

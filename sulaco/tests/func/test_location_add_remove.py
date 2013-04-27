@@ -14,18 +14,18 @@ class TestLocationAddRemove(BasicFuncTest):
         self.run_location('loc_1', 'tcp://127.0.0.1:8770',
                                    'tcp://127.0.0.1:8771')
 
-        self.assertEqual({u'kwargs': {u'loc_id': u'loc_1'},
-                          u'path': u'location_added'},
+        self.assertEqual({'kwargs': {'loc_id': 'loc_1'},
+                          'path': 'location_added'},
                           c1.recv())
-        self.assertEqual({u'kwargs': {u'loc_id': u'loc_1'},
-                          u'path': u'location_added'},
+        self.assertEqual({'kwargs': {'loc_id': 'loc_1'},
+                          'path': 'location_added'},
                           c2.recv())
 
         self.shutdown_location('loc_1')
 
-        self.assertEqual({u'kwargs': {u'loc_id': u'loc_1'},
-                          u'path': u'location_removed'},
+        self.assertEqual({'kwargs': {'loc_id': 'loc_1'},
+                          'path': 'location_removed'},
                           c1.recv())
-        self.assertEqual({u'kwargs': {u'loc_id': u'loc_1'},
-                          u'path': u'location_removed'},
+        self.assertEqual({'kwargs': {'loc_id': 'loc_1'},
+                          'path': 'location_removed'},
                           c2.recv())
