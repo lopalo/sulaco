@@ -1,8 +1,5 @@
 import argparse
-
 from random import choice
-from zmq.eventloop import ioloop
-ioloop.install()
 
 from tornado.ioloop import IOLoop
 from sulaco.outer_server.tcp_server import TCPServer, SimpleProtocol
@@ -13,6 +10,7 @@ from sulaco.utils.receiver import (
     message_receiver, message_router, Loopback,
     USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN)
 from sulaco.utils import Config, Sender
+from sulaco.utils.zmq import install
 from sulaco.outer_server.message_manager import MessageManager
 from sulaco.outer_server.message_manager import Root as ABCRoot
 
@@ -20,7 +18,7 @@ from sulaco.outer_server.message_manager import Root as ABCRoot
 class Root(ABCRoot, Loopback):
 
     def __init__(self, config, connman, msgman):
-        super(Root, self).__init__()
+        super().__init__()
         self._config = config
         self._connman = connman
         self._msgman = msgman
@@ -145,6 +143,7 @@ class ConnManager(LocationMixin, DistributedConnectionManager):
 
 
 def main(options):
+    install()
     config = Config.load_yaml(options.config)
     msgman = MessageManager(config)
     msgman.connect()

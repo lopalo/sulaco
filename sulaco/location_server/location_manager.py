@@ -4,9 +4,10 @@ import argparse
 import json
 import zmq
 from time import time
-from zmq.eventloop.ioloop import IOLoop, PeriodicCallback
+from tornado.ioloop import IOLoop, PeriodicCallback
 
 from sulaco.utils import Config
+from sulaco.utils.zmq import install
 
 from sulaco import (
     GET_LOCATIONS_INFO, LOCATIONS_INFO,
@@ -98,6 +99,7 @@ def start_location_manager(config):
 
 
 if __name__ == "__main__":
+    install()
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', action='store', dest='config',
                         help='path to config file', type=str, required=True)

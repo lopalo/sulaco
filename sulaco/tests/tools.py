@@ -27,10 +27,10 @@ class BlockingClient(SimpleProtocol):
         self.s = Sender(self.send)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         stream = IOStream(sock)
-        super(BlockingClient, self).__init__(stream)
+        super().__init__(stream)
 
     def connect(self, port, seconds=5):
-        super(BlockingClient, self).connect(('', port))
+        super().connect(('', port))
         return self._wait(seconds)
 
     def recv(self, seconds=5, path_prefix='', kwargs_contain={}):
@@ -52,7 +52,7 @@ class BlockingClient(SimpleProtocol):
             return msg
 
     def send(self, msg, seconds=5):
-        super(BlockingClient, self).send(msg)
+        super().send(msg)
         return self._wait(seconds)
 
     def _wait(self, seconds):
@@ -75,15 +75,15 @@ class BlockingClient(SimpleProtocol):
         return result
 
     def on_open(self, *args):
-        super(BlockingClient, self).on_open(*args)
+        super().on_open(*args)
         self._loop.stop()
 
     def on_sent(self):
-        super(BlockingClient, self).on_sent()
+        super().on_sent()
         self._loop.stop()
 
     def on_message(self, msg):
-        super(BlockingClient, self).on_message(msg)
+        super().on_message(msg)
         if self._path_prefix is None:
             self._buffer.append(msg)
             return

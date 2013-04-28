@@ -5,7 +5,7 @@ from functools import partial
 
 import zmq
 from zmq.eventloop.zmqstream import ZMQStream
-from zmq.eventloop.ioloop import IOLoop, PeriodicCallback
+from tornado.ioloop import IOLoop, PeriodicCallback
 
 from sulaco import (PUBLIC_MESSAGE_FROM_LOCATION_PREFIX,
                     PRIVATE_MESSAGE_FROM_LOCATION_PREFIX)

@@ -1,6 +1,7 @@
 import argparse
 
 from sulaco.utils import Config
+from sulaco.utils.zmq import install
 from sulaco.utils.receiver import message_receiver, INTERNAL_SIGN
 from sulaco.location_server.gateway import Gateway
 
@@ -28,6 +29,7 @@ class Root(object):
 
 
 def main(options):
+    install()
     config = Config.load_yaml(options.config)
     gateway = Gateway(config, options.ident)
     root = Root(gateway, options.ident, config)

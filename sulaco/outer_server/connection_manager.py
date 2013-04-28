@@ -23,11 +23,11 @@ class ConnectionHandler(object):
         self.s = Sender(self.send)
 
     def on_open(self, *args):
-        super(ConnectionHandler, self).on_open(*args)
+        super().on_open(*args)
         self._connman.add_connection(self)
 
     def on_message(self, message):
-        super(ConnectionHandler, self).on_message(message)
+        super().on_message(message)
         path = message['path'].split('.')
         kwargs = message['kwargs']
         kwargs['conn'] = self
@@ -45,7 +45,7 @@ class ConnectionHandler(object):
         #TODO: catch other exceptions and write them to log
 
     def on_close(self):
-        super(ConnectionHandler, self).on_close()
+        super().on_close()
         self._connman.remove_connection(self)
         #TODO: maybe notify all connected channels and do final actions
 
@@ -144,25 +144,22 @@ class ConnectionManager(object):
 class DistributedConnectionManager(ConnectionManager):
 
     def __init__(self, **kwargs):
-        super(DistributedConnectionManager, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._pub_socket = kwargs['pub_socket']
         self._sub_socket = kwargs['sub_socket']
 
     def bind_connection_to_uid(self, conn, uid):
-        super(DistributedConnectionManager,
-                self).bind_connection_to_uid(conn, uid)
+        super().bind_connection_to_uid(conn, uid)
         topic = SEND_BY_UID_PREFIX + str(uid)
         self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic.encode('utf-8'))
 
     def add_connection_to_channel(self, conn, channel):
-        super(DistributedConnectionManager,
-                self).add_connection_to_channel(conn, channel)
+        super().add_connection_to_channel(conn, channel)
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
         self._sub_socket.setsockopt(zmq.SUBSCRIBE, topic.encode('utf-8'))
 
     def remove_connection_from_channel(self, conn, channel):
-        super(DistributedConnectionManager,
-                self).remove_connection_from_channel(conn, channel)
+        super().remove_connection_from_channel(conn, channel)
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
         self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic.encode('utf-8'))
 
@@ -175,10 +172,10 @@ class DistributedConnectionManager(ConnectionManager):
         for channel in channels:
             topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
             self._sub_socket.setsockopt(zmq.UNSUBSCRIBE, topic.encode('utf-8'))
-        super(DistributedConnectionManager, self).remove_connection(conn)
+        super().remove_connection(conn)
 
     def send_by_uid(self, uid, msg):
-        sent = super(DistributedConnectionManager, self).send_by_uid(uid, msg)
+        sent = super().send_by_uid(uid, msg)
         if sent:
             return
         topic = SEND_BY_UID_PREFIX + str(uid)
@@ -186,8 +183,7 @@ class DistributedConnectionManager(ConnectionManager):
         self._pub_socket.send_json(msg)
 
     def publish_to_channel(self, channel, msg, locally=True):
-        super(DistributedConnectionManager,
-                self).publish_to_channel(channel, msg)
+        super().publish_to_channel(channel, msg)
         if locally:
             # to prevent of infinite broadcast
             return
@@ -199,7 +195,7 @@ class DistributedConnectionManager(ConnectionManager):
 class LocationMixin(object):
 
     def __init__(self, **kwargs):
-        super(LocationMixin, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._locs_sub_socket = kwargs['locations_sub_socket']
         self._uid_to_location = {}
         self._location_to_uids = defaultdict(set)
@@ -230,7 +226,7 @@ class LocationMixin(object):
 
     def remove_connection(self, conn):
         uid = self._connection_to_uid.get(conn, None)
-        super(LocationMixin, self).remove_connection(conn)
+        super().remove_connection(conn)
         if uid is None or uid not in self._uid_to_location:
             return
         location = self._uid_to_location[uid]

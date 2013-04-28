@@ -15,7 +15,7 @@ class Config(object):
             return cls(dct, True)
 
     def __getattribute__(self, name):
-        val = super(Config, self).__getattribute__(name)
+        val = super().__getattribute__(name)
         if not name.startswith('_') and isinstance(val, dict):
             return self.__class__(val, False)
         return val
@@ -43,12 +43,12 @@ class InstanceError(Exception):
 
     def __init__(self, name, cls):
         text = "'{}' should be an instance of {}".format(name, cls)
-        super(InstanceError, self).__init__(text)
+        super().__init__(text)
 
 
 class SubclassError(Exception):
 
     def __init__(self, name, cls):
         text = "'{}' should be a subclass of {}".format(name, cls)
-        super(SubclassError, self).__init__(text)
+        super().__init__(text)
 

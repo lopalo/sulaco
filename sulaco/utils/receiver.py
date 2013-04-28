@@ -122,14 +122,14 @@ def message_receiver(sign=None):
 class SyncRunner(Runner):
 
     def __init__(self, gen, finish_callback):
-        super(SyncRunner, self).__init__(gen, lambda: None)
+        super().__init__(gen, lambda: None)
         self.finish_callback = finish_callback
 
     def run(self):
         if self.running or self.finished:
             return
         try:
-            super(SyncRunner, self).run()
+            super().run()
         except Exception:
             if self.finished:
                 self.finish_callback(False)
@@ -148,7 +148,7 @@ def root_dispatch(root, path, kwargs, sign):
 class Loopback(object):
 
     def __init__(self, *args, **kwargs):
-        super(Loopback, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._callbacks = []
 
     def process_loopback_callbacks(self, ok):
