@@ -36,7 +36,7 @@ class Sender(object):
 
     def __call__(self, **kwargs):
         message = dict(kwargs=kwargs, path='.'.join(self._path))
-        self._send(message)
+        return self._send(message)
 
 
 class InstanceError(Exception):

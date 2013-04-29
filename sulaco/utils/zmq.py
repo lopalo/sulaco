@@ -1,14 +1,14 @@
-from zmq.eventloop import ioloop as zioloop
-from tornado import ioloop as tioloop
+from zmq.eventloop.ioloop import IOLoop as ZIOLoop, ZMQPoller
+from tornado.ioloop import PollIOLoop
 
 
-class ZMQIOLoop(tioloop.PollIOLoop):
+class ZMQIOLoop(PollIOLoop):
 
     def initialize(self, **kwargs):
-        super().initialize(impl=zioloop.ZMQPoller(), **kwargs)
+        super().initialize(impl=ZMQPoller(), **kwargs)
 
 
 def install():
-    assert not tioloop.IOLoop.initialized()
-    tioloop.IOLoop.configure(ZMQIOLoop)
-    zioloop.IOLoop = tioloop.IOLoop
+    assert not ZIOLoop.initialized() and not PollIOLoop.initialized()
+    PollIOLoop.configure(ZMQIOLoop)
+    ZIOLoop._instance = PollIOLoop.instance()

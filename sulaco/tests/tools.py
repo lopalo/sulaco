@@ -143,7 +143,7 @@ class BasicFuncTest(unittest.TestCase):
                     max_conn, '-c', self.config]
             s = subprocess.Popen(args)
             self._servers.append(s)
-        sleep(.3)
+        sleep(.4)
 
     def run_location(self, ident, pub, pull):
         self.run_locations((ident, pub, pull))
@@ -159,7 +159,7 @@ class BasicFuncTest(unittest.TestCase):
                     '-c', self.config]
             l = subprocess.Popen(args)
             self._locations[ident] = l
-        sleep(.4)
+        sleep(.5)
 
     def shutdown_location(self, ident):
         self._locations.pop(ident).terminate()

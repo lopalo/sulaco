@@ -1,9 +1,9 @@
 import json
-import types
+from types import GeneratorType
 from functools import wraps, partial
 
 from tornado.ioloop import IOLoop
-from tornado.gen import Runner, Task
+from tornado.gen import coroutine
 
 from sulaco.utils import Sender
 
@@ -25,7 +25,7 @@ class SignError(Exception):
     pass
 
 
-def _dispatch(obj, path, kwargs, sign, index, stack):
+def _dispatch(obj, path, kwargs, sign, index, root=False):
     """ Additional arguments need add to kwargs dict """
 
     name = path[index]
@@ -59,11 +59,15 @@ def _dispatch(obj, path, kwargs, sign, index, stack):
         raise SignError("Need user's sign")
 
     if meth_type == MESSAGE_ROUTER:
-        meth(path, kwargs, sign, index, stack)
+        if not root:
+            return meth(path, kwargs, sign, index)
+        return partial(meth, path, kwargs, sign, index)
     if meth_type == MESSAGE_RECEIVER:
-        meth(kwargs, stack)
+        if not root:
+            return meth(kwargs)
+        return partial(meth, kwargs)
 
-#TODO: rewrite using yield from
+
 def message_router(sign=None):
     assert sign in SIGNS, "unknown sign '{}'".format(sign)
 
@@ -71,24 +75,13 @@ def message_router(sign=None):
         func.__sign__ = sign
         func.__receiver__method__ = MESSAGE_ROUTER
         @wraps(func)
-        def new_func(self, path, kwargs, sign, index, stack):
-            def next_step(obj, callback=None):
-                if callback is not None:
-                    stack.append(callback)
-                _dispatch(obj, path, kwargs, sign, index + 1, stack)
-
-            def finish_cb(ok=True):
-                if stack:
-                    stack.pop()(ok)
-
-            try:
-                gen = func(self, next_step, **kwargs)
-            except Exception:
-                finish_cb(False)
-                raise
-            if isinstance(gen, types.GeneratorType):
-                runner = SyncRunner(gen, finish_cb)
-                runner.run()
+        def new_func(self, path, kwargs, sign, index):
+            def next_step(obj):
+                return _dispatch(obj, path, kwargs, sign, index + 1)
+            result = func(self, next_step, **kwargs)
+            error = '{} must return generator'.format(func)
+            assert isinstance(result, GeneratorType), error
+            return result
         return new_func
     return _message_router
 
@@ -100,49 +93,35 @@ def message_receiver(sign=None):
         func.__sign__ = sign
         func.__receiver__method__ = MESSAGE_RECEIVER
         @wraps(func)
-        def new_func(self, kwargs, stack):
-            def finish_cb(ok=True):
-                if stack:
-                    stack.pop()(ok)
-
-            try:
-                gen = func(self, **kwargs)
-            except Exception:
-                finish_cb(False)
-                raise
-            if isinstance(gen, types.GeneratorType):
-                runner = SyncRunner(gen, finish_cb)
-                runner.run()
+        def new_func(self, kwargs):
+            result = func(self, **kwargs)
+            if isinstance(result, GeneratorType):
+                pass
+            elif result is None:
+                result = dummy_generator()
             else:
-               finish_cb()
+                error = '{} must return generator or None'.format(func)
+                raise AssertionError(error)
+            return result
         return new_func
     return _message_receiver
 
 
-class SyncRunner(Runner):
-
-    def __init__(self, gen, finish_callback):
-        super().__init__(gen, lambda: None)
-        self.finish_callback = finish_callback
-
-    def run(self):
-        if self.running or self.finished:
-            return
-        try:
-            super().run()
-        except Exception:
-            if self.finished:
-                self.finish_callback(False)
-            raise
-        if self.finished:
-            self.finish_callback()
+def dummy_generator():
+    return
+    yield
 
 
 def root_dispatch(root, path, kwargs, sign):
-    stack = []
+    func = _dispatch(root, path, kwargs, sign, 0, True)
+    future = coroutine(func)()
     if isinstance(root, Loopback):
-        stack.append(root.process_loopback_callbacks)
-    _dispatch(root, path, kwargs, sign, 0, stack)
+        future.add_done_callback(root.process_loopback_callbacks)
+    else:
+        def check_error(future):
+            future.result()
+        future.add_done_callback(check_error)
+    return future
 
 
 class Loopback(object):
@@ -151,11 +130,15 @@ class Loopback(object):
         super().__init__(*args, **kwargs)
         self._callbacks = []
 
-    def process_loopback_callbacks(self, ok):
-        ioloop = IOLoop.instance()
-        for cb in self._callbacks:
-            ioloop.add_callback(cb)
-        self._callbacks = []
+    def process_loopback_callbacks(self, future):
+        try:
+            future.result()
+            ioloop = IOLoop.instance()
+            for cb in self._callbacks:
+                #run on next iteraion of IOLoop to prevent recursion
+                ioloop.add_callback(cb)
+        finally:
+            self._callbacks = []
 
     def send_loopback(self, message):
         path = message['path'].split('.')

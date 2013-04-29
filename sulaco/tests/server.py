@@ -49,14 +49,14 @@ class Root(ABCRoot, Loopback):
 
     @message_router()
     def channels(self, next_step, **kwargs):
-        next_step(Channels(self._connman))
+        yield from next_step(Channels(self._connman))
 
     @message_router(INTERNAL_USER_SIGN)
     def location(self, next_step, uid, location=None, **kwargs):
         user = self._users[uid]
         loc_name = location or user.location
         socket = self._msgman.loc_input_sockets.get(loc_name)
-        next_step(Location(loc_name, user, socket, self._connman))
+        yield from next_step(Location(loc_name, user, socket, self._connman))
 
     def location_added(self, loc_id):
         self._connman.alls.location_added(loc_id=loc_id)
