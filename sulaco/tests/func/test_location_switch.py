@@ -37,7 +37,7 @@ class TestLocationSwitch(BasicFuncTest):
             {'user': {'username': 'user3', 'uid': 3}},
             c1.recv(path_prefix='location.user_connected')['kwargs'])
 
-        c3.s.location.move_to(next_location='loc_Y')
+        c3.s.location.move_to(target_location='loc_Y')
 
         self.assertEqual(
             {'uid': 3},

@@ -10,10 +10,10 @@ from sulaco.utils import SubclassError
 class TCPServer(BasicTCPServer):
 
     def setup(self, protocol, connman, root, max_conn=None):
-        if not issubclass(protocol, ConnectionHandler):
-            raise SubclassError('protocol', ConnectionHandler)
         if not issubclass(protocol, ABCProtocol):
             raise SubclassError('protocol', ABCProtocol)
+        if not issubclass(protocol, ConnectionHandler):
+            raise SubclassError('protocol', ConnectionHandler)
         self._protocol = protocol
         self._connman = connman
         self._root = root
@@ -25,7 +25,8 @@ class TCPServer(BasicTCPServer):
         conn.on_open()
         max_conn = self._max_conn
         if max_conn is not None:
-            if max_conn + 1 == self._connman.connections_count:
+            # connection already added to connection manager
+            if max_conn == self._connman.connection_count - 1:
                 conn.s.error(msg=MAX_CONNECTION_ERROR)
                 conn.send_and_close()
 
@@ -41,6 +42,22 @@ class ABCProtocol(object, metaclass=ABCMeta):
 
     @abstractmethod
     def send_and_close(self):
+        pass
+
+    @abstractmethod
+    def on_open(self):
+        pass
+
+    @abstractmethod
+    def on_sent(self):
+        pass
+
+    @abstractmethod
+    def on_message(self, message):
+        pass
+
+    @abstractmethod
+    def on_close(self):
         pass
 
 
@@ -83,7 +100,7 @@ class SimpleProtocol(ABCProtocol):
         if self._send_and_close:
             self.close()
 
-    def on_message(self, mesage):
+    def on_message(self, message):
         pass
 
     def on_close(self):

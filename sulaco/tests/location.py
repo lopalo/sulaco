@@ -14,17 +14,16 @@ class Root(object):
         self._ident = ident
 
     @message_receiver(INTERNAL_SIGN)
-    def enter(self, user):
-        uid = user['uid']
+    def enter(self, user, uid):
         self._users[uid] = user
         self._gateway.prs(uid).init(users=list(self._users.values()),
                                     ident=self._ident)
         self._gateway.pubs.user_connected(user=user)
 
     @message_receiver(INTERNAL_SIGN)
-    def move_to(self, uid, location):
+    def move_to(self, uid, target_location):
         del self._users[uid]
-        self._gateway.prs(uid).enter(location=location)
+        self._gateway.prs(uid).enter(location=target_location)
         self._gateway.pubs.user_disconnected(uid=uid)
 
 

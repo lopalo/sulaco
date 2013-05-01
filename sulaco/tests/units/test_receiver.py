@@ -106,9 +106,9 @@ class TestReceiver(unittest.TestCase):
 
     def test_sign1(self):
         self.conn.sign = None
-        with self.assertRaisesRegexp(SignError, "Need user's sign"):
+        with self.assertRaisesRegexp(SignError, "Necessary user's sign"):
             self.sender.meth_a.meth_a()
-        with self.assertRaisesRegexp(SignError, "Need user's sign"):
+        with self.assertRaisesRegexp(SignError, "Necessary user's sign"):
             self.sender.meth_b()
         self.conn.sign = USER_SIGN
         self.sender.meth_a.meth_b(a=1, b=1)
@@ -118,14 +118,14 @@ class TestReceiver(unittest.TestCase):
         self.sender.meth_z.meth_x()
 
     def test_sign3(self):
-        with self.assertRaisesRegexp(SignError, "Need internal sign"):
+        with self.assertRaisesRegexp(SignError, "Necessary internal sign"):
             self.sender.meth_g()
 
     def test_sign4(self):
         self.sender.meth_y()
         self.conn.sign = None
         with self.assertRaisesRegexp(SignError,
-                "Need internal or user's sign"):
+                "Necessary internal or user's sign"):
             self.sender.meth_y()
 
     def test_async(self):

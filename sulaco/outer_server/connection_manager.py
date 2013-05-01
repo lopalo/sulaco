@@ -47,7 +47,6 @@ class ConnectionHandler(object):
     def on_close(self):
         super().on_close()
         self._connman.remove_connection(self)
-        #TODO: maybe notify all connected channels and do final actions
 
     def _on_sign_error(self):
         self.s.error(msg=SIGN_ERROR)
@@ -134,7 +133,7 @@ class ConnectionManager(object):
         return Sender(self.publish_to_all)
 
     @property
-    def connections_count(self):
+    def connection_count(self):
         return len(self._connections)
 
     def get_uid(self, conn):

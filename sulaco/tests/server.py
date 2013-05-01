@@ -7,15 +7,15 @@ from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,
     ConnectionHandler, LocationMixin)
 from sulaco.utils.receiver import (
-    message_receiver, message_router, Loopback,
-    USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN)
+    message_receiver, message_router, LoopbackMixin,
+    ProxyMixin, USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN)
 from sulaco.utils import Config, Sender
 from sulaco.utils.zmq import install
 from sulaco.outer_server.message_manager import MessageManager
 from sulaco.outer_server.message_manager import Root as ABCRoot
 
 
-class Root(ABCRoot, Loopback):
+class Root(ABCRoot, LoopbackMixin):
 
     def __init__(self, config, connman, msgman):
         super().__init__()
@@ -35,7 +35,7 @@ class Root(ABCRoot, Loopback):
         assert uid not in self._users
         self._connman.bind_connection_to_uid(conn, uid)
         loc = loc or choice(self._config.user.start_locations)
-        self._users[uid] = User(username, uid, None, conn, self._config)
+        self._users[uid] = User(username, uid, None, conn)
         conn.s.sign_id(uid=uid)
         self.lbs.location.enter(uid=uid, location=loc)
 
@@ -51,12 +51,16 @@ class Root(ABCRoot, Loopback):
     def channels(self, next_step, **kwargs):
         yield from next_step(Channels(self._connman))
 
-    @message_router(INTERNAL_USER_SIGN)
-    def location(self, next_step, uid, location=None, **kwargs):
+    @message_router(INTERNAL_USER_SIGN, pass_sign=True)
+    def location(self, next_step, sign, uid, location=None, **kwargs):
         user = self._users[uid]
-        loc_name = location or user.location
+        if sign == INTERNAL_SIGN:
+            loc_name = location or user.location
+        else:
+            loc_name = user.location
         socket = self._msgman.loc_input_sockets.get(loc_name)
-        yield from next_step(Location(loc_name, user, socket, self._connman))
+        yield from next_step(Location(loc_name, user, socket,
+                                self._connman, self._config))
 
     def location_added(self, loc_id):
         self._connman.alls.location_added(loc_id=loc_id)
@@ -86,36 +90,30 @@ class Channels(object):
 
 class User(object):
 
-    def __init__(self, username, uid, location, conn, config):
+    def __init__(self, username, uid, location, conn):
         self.username = username
         self.uid = uid
         self.location = location
         self.conn = conn
-        path_prefix = tuple(config.outer_server.
-                            client_location_handler_path.split('.'))
-        self.ls = Sender(conn.send, path_prefix)
 
     def to_dict(self):
         return {'username': self.username,
                 'uid': self.uid}
 
 
-class Location(object):
+class Location(ProxyMixin):
 
-    def __init__(self, name, user, loc_input, connman):
+    def __init__(self, name, user, loc_input, connman, config):
         self._name = name
         self._user = user
         self._loc_input = loc_input
         self._connman = connman
+        self._config = config
         self.s = Sender(self.send)
 
     def send(self, msg):
-        msg['uid'] = self._user.uid
+        msg['kwargs']['uid'] = self._user.uid
         self._loc_input.send_json(msg)
-
-    @message_receiver(USER_SIGN)
-    def move_to(self, next_location, **kwargs):
-        self.s.move_to(uid=self._user.uid, location=next_location)
 
     @message_receiver(INTERNAL_SIGN)
     def enter(self, **kwargs):
@@ -129,9 +127,17 @@ class Location(object):
         connman.add_user_to_location(self._name, user.uid)
         self.s.enter(user=user.to_dict())
 
-    @message_receiver(INTERNAL_SIGN)
-    def init(self, users, ident, **kwargs):
-        self._user.ls.init(users=users, ident=ident)
+    def proxy_method(self, path, sign, kwargs):
+        del kwargs['uid']
+        kwargs.pop('location', None)
+        kwargs.pop('conn', None)
+        if sign == USER_SIGN:
+            self.send(dict(path='.'.join(path), kwargs=kwargs))
+        elif sign == INTERNAL_SIGN:
+            path_prefix = list(self._config.outer_server.
+                            client_location_handler_path.split('.'))
+            path = path_prefix + path
+            self._user.conn.send(dict(path='.'.join(path), kwargs=kwargs))
 
 
 class Protocol(ConnectionHandler, SimpleProtocol):

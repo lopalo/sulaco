@@ -1,4 +1,5 @@
 import json
+from abc import ABCMeta, abstractmethod
 from types import GeneratorType
 from functools import wraps, partial
 
@@ -26,7 +27,7 @@ class SignError(Exception):
 
 
 def _dispatch(obj, path, kwargs, sign, index, root=False):
-    """ Additional arguments need add to kwargs dict """
+    """ Additional arguments necessary to add to kwargs dict """
 
     name = path[index]
     max_index = len(path) - 1
@@ -37,8 +38,16 @@ def _dispatch(obj, path, kwargs, sign, index, root=False):
 
     meth = getattr(obj, name, None)
     if meth is None:
-        etxt = '{} has no method {}. {}'
-        raise ReceiverError(etxt.format(obj, name,  pinfo))
+        if isinstance(obj, ProxyMixin):
+            rest_path = path[index:]
+            if not root:
+                obj.proxy_method(rest_path, sign, kwargs)
+                return dummy_generator()
+            return partial(meth, rest_path, sign)
+        else:
+            etxt = '{} has no method {}. {}'
+            raise ReceiverError(etxt.format(obj, name,  pinfo))
+
     meth_type = getattr(meth, '__receiver__method__', '')
     if meth_type not in (MESSAGE_RECEIVER, MESSAGE_ROUTER):
         etxt = "Method '{}' of {} is forbidden. {}"
@@ -52,11 +61,11 @@ def _dispatch(obj, path, kwargs, sign, index, root=False):
 
     if (meth.__sign__ == INTERNAL_USER_SIGN and
             sign not in (INTERNAL_SIGN, USER_SIGN)):
-        raise SignError("Need internal or user's sign")
+        raise SignError("Necessary internal or user's sign")
     elif meth.__sign__ == INTERNAL_SIGN and sign != INTERNAL_SIGN:
-        raise SignError("Need internal sign")
+        raise SignError("Necessary internal sign")
     elif meth.__sign__ == USER_SIGN and sign != USER_SIGN:
-        raise SignError("Need user's sign")
+        raise SignError("Necessary user's sign")
 
     if meth_type == MESSAGE_ROUTER:
         if not root:
@@ -68,7 +77,7 @@ def _dispatch(obj, path, kwargs, sign, index, root=False):
         return partial(meth, kwargs)
 
 
-def message_router(sign=None):
+def message_router(sign=None, pass_sign=False):
     assert sign in SIGNS, "unknown sign '{}'".format(sign)
 
     def _message_router(func):
@@ -78,7 +87,10 @@ def message_router(sign=None):
         def new_func(self, path, kwargs, sign, index):
             def next_step(obj):
                 return _dispatch(obj, path, kwargs, sign, index + 1)
-            result = func(self, next_step, **kwargs)
+            if pass_sign:
+                result = func(self, next_step, sign, **kwargs)
+            else:
+                result = func(self, next_step, **kwargs)
             error = '{} must return generator'.format(func)
             assert isinstance(result, GeneratorType), error
             return result
@@ -115,7 +127,7 @@ def dummy_generator():
 def root_dispatch(root, path, kwargs, sign):
     func = _dispatch(root, path, kwargs, sign, 0, True)
     future = coroutine(func)()
-    if isinstance(root, Loopback):
+    if isinstance(root, LoopbackMixin):
         future.add_done_callback(root.process_loopback_callbacks)
     else:
         def check_error(future):
@@ -124,7 +136,7 @@ def root_dispatch(root, path, kwargs, sign):
     return future
 
 
-class Loopback(object):
+class LoopbackMixin(object):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -135,7 +147,7 @@ class Loopback(object):
             future.result()
             ioloop = IOLoop.instance()
             for cb in self._callbacks:
-                #run on next iteraion of IOLoop to prevent recursion
+                # run on next iteraion of IOLoop to prevent recursion
                 ioloop.add_callback(cb)
         finally:
             self._callbacks = []
@@ -152,4 +164,10 @@ class Loopback(object):
 
         return Sender(self.send_loopback)
 
-#TODO: implement ProxyReceiver with default_receiver that takes rest of the path
+
+class ProxyMixin(object, metaclass=ABCMeta):
+
+    @abstractmethod
+    def proxy_method(self, rest_path, sign, kwargs):
+        pass
+
