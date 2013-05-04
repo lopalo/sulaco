@@ -1,11 +1,13 @@
 import signal
 import json
+import logging
+import zmq
 
 from functools import partial
-
-import zmq
+from zmq.error import NotDone
 from zmq.eventloop.zmqstream import ZMQStream
 from tornado.ioloop import IOLoop, PeriodicCallback
+from tornado.stack_context import ExceptionStackContext
 
 from sulaco import (PUBLIC_MESSAGE_FROM_LOCATION_PREFIX,
                     PRIVATE_MESSAGE_FROM_LOCATION_PREFIX)
@@ -14,6 +16,9 @@ from sulaco.utils.receiver import root_dispatch, INTERNAL_SIGN
 from sulaco.location_server import (
     CONNECT_MESSAGE, DISCONNECT_MESSAGE,
     HEARTBEAT_MESSAGE)
+
+
+logger = logging.getLogger(__name__)
 
 
 class Gateway(object):
@@ -68,16 +73,23 @@ class Gateway(object):
         finally:
             parts = (DISCONNECT_MESSAGE.encode('utf-8'),
                      self._ident.encode('utf-8'))
-            self._push_to_man.send_multipart(parts, copy=False,
-                                                track=True).wait(2)
+            try:
+                self._push_to_man.send_multipart(parts, copy=False,
+                                                    track=True).wait(2)
+            except NotDone:
+                pass
 
     def _receive(self, parts):
         assert len(parts) == 1
         message = json.loads(parts[0].decode('utf-8'))
         path = message['path'].split('.')
         kwargs = message['kwargs']
-        root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
-        #TODO: catch exceptions and write them to log
+        with ExceptionStackContext(self.exception_handler):
+            root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
+
+    def exception_handler(self, type, value, traceback):
+        logger.exception('Exception in message handler')
+        return True
 
     def private_message(self, uid, msg):
         topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,

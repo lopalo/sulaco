@@ -1,9 +1,10 @@
-from zmq.eventloop import zmqstream
-
 import argparse
 import json
 import zmq
+import logging
+
 from time import time
+from zmq.eventloop import zmqstream
 from tornado.ioloop import IOLoop, PeriodicCallback
 
 from sulaco.utils import Config
@@ -16,6 +17,9 @@ from sulaco import (
 from sulaco.location_server import (
     DISCONNECT_MESSAGE, HEARTBEAT_MESSAGE,
     CONNECT_MESSAGE)
+
+
+logger = logging.getLogger(__name__)
 
 
 def start_location_manager(config):
@@ -49,8 +53,7 @@ def start_location_manager(config):
             stream.send(LOCATIONS_INFO.encode('utf-8'), zmq.SNDMORE)
             stream.send_json(locations)
         else:
-            #TODO: log unknown message
-            raise Exception()
+            logger.warning('Unknown request message: %s', msg)
 
     def input(parts):
         msg, loc_id = parts
@@ -58,19 +61,17 @@ def start_location_manager(config):
         loc_id = loc_id.decode('utf-8')
         if msg == HEARTBEAT_MESSAGE:
             if loc_id not in locations:
-                #TODO: log unknown location
-                raise Exception()
+                logger.warning('Unknown location: %s', loc_id)
                 return
             last_heartbeats[loc_id] = time()
         elif msg == DISCONNECT_MESSAGE:
             if loc_id not in locations:
-                #TODO: log unknown location
-                raise Exception()
+                logger.warning('Unknown location: %s', loc_id)
                 return
             disconnect(loc_id)
         else:
-            #TODO: log unknown message
-            raise Exception()
+            logger.warning('Unknown request message: %s', msg)
+
 
     def heartbeats_checker():
         for loc_id, t in last_heartbeats.copy().items():
@@ -100,6 +101,7 @@ def start_location_manager(config):
 
 if __name__ == "__main__":
     install()
+    #TODO: setup logger
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', action='store', dest='config',
                         help='path to config file', type=str, required=True)

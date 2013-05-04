@@ -1,10 +1,15 @@
-from abc import ABCMeta, abstractmethod
 import json
+import logging
+
+from abc import ABCMeta, abstractmethod
 from tornado.tcpserver import TCPServer as BasicTCPServer
 
 from sulaco.outer_server.connection_manager import ConnectionHandler
 from sulaco.outer_server import MAX_CONNECTION_ERROR
 from sulaco.utils import SubclassError
+
+
+logger = logging.getLogger(__name__)
 
 
 class TCPServer(BasicTCPServer):
@@ -21,14 +26,12 @@ class TCPServer(BasicTCPServer):
 
     def handle_stream(self, stream, address):
         conn = self._protocol(stream)
+        max_conn = self._max_conn
+        if max_conn is not None and max_conn == self._connman.connection_count:
+            logger.warning('Maximum of connection count was achieved')
+            return
         conn.setup(self._connman, self._root)
         conn.on_open()
-        max_conn = self._max_conn
-        if max_conn is not None:
-            # connection already added to connection manager
-            if max_conn == self._connman.connection_count - 1:
-                conn.s.error(msg=MAX_CONNECTION_ERROR)
-                conn.send_and_close()
 
 
 class ABCProtocol(object, metaclass=ABCMeta):
@@ -41,15 +44,7 @@ class ABCProtocol(object, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def send_and_close(self):
-        pass
-
-    @abstractmethod
     def on_open(self):
-        pass
-
-    @abstractmethod
-    def on_sent(self):
         pass
 
     @abstractmethod
@@ -65,7 +60,6 @@ class SimpleProtocol(ABCProtocol):
     _header_bytes = 10
 
     def __init__(self, stream):
-        self._send_and_close = False
         self._stream = stream
         stream.set_close_callback(self.on_close)
 
@@ -87,9 +81,6 @@ class SimpleProtocol(ABCProtocol):
     def connect(self, address):
         self._stream.connect(address, self.on_open)
 
-    def send_and_close(self):
-        self._send_and_close = True
-
     def close(self):
         self._stream.close()
 
@@ -97,13 +88,6 @@ class SimpleProtocol(ABCProtocol):
         self._stream.read_bytes(self._header_bytes, self._on_header)
 
     def on_sent(self):
-        if self._send_and_close:
-            self.close()
-
-    def on_message(self, message):
-        pass
-
-    def on_close(self):
         pass
 
 

@@ -1,7 +1,10 @@
 import json
 import zmq
+import logging
+
 from abc import ABCMeta, abstractmethod
 from zmq.eventloop import zmqstream
+from tornado.stack_context import ExceptionStackContext
 
 from sulaco import (
     PUBLIC_MESSAGE_FROM_LOCATION_PREFIX,
@@ -13,6 +16,9 @@ from sulaco.utils.receiver import INTERNAL_SIGN, root_dispatch
 from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,
     LocationMixin)
+
+
+logger = logging.getLogger(__name__)
 
 
 def message_handler(prefix):
@@ -74,11 +80,16 @@ class MessageManager(object):
             self._handlers[prefix] = item
 
     def _on_message(self, parts):
+        logger.debug("Received parts: %s", parts)
         topic, body = parts
         prefix, data = topic.decode('utf-8').split(':', 1)
         msg = json.loads(body.decode('utf-8'))
-        #TODO: try-except and log
-        self._handlers[prefix + ':'](data, msg)
+        with ExceptionStackContext(self.exception_handler):
+            self._handlers[prefix + ':'](data, msg)
+
+    def exception_handler(self, type, value, traceback):
+        logger.exception('Exception in message handler')
+        return True
 
     @message_handler(SEND_BY_UID_PREFIX)
     def send_by_uid(self, uid, msg):
@@ -122,7 +133,6 @@ class MessageManager(object):
         if not 'location' in kwargs:
             kwargs['location'] = location
         kwargs['uid'] = int(uid)
-        #TODO: try-except with logging
         root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
 
 

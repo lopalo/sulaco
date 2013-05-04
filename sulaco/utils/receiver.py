@@ -1,3 +1,4 @@
+import sys
 import json
 from abc import ABCMeta, abstractmethod
 from types import GeneratorType
@@ -36,45 +37,51 @@ def _dispatch(obj, path, kwargs, sign, index, root=False):
     path_info[index] = '|' + name + '|'
     pinfo = 'Path: ' + '.'.join(path_info)
 
-    meth = getattr(obj, name, None)
-    if meth is None:
-        if isinstance(obj, ProxyMixin):
-            rest_path = path[index:]
+    try:
+        meth = getattr(obj, name, None)
+        if meth is None:
+            if isinstance(obj, ProxyMixin):
+                rest_path = path[index:]
+                if not root:
+                    obj.proxy_method(rest_path, sign, kwargs)
+                    return dummy_generator()
+                return partial(meth, rest_path, sign)
+            else:
+                etxt = '{} has no method {}.'
+                raise ReceiverError(etxt.format(obj, name))
+
+        meth_type = getattr(meth, '__receiver__method__', '')
+        if meth_type not in (MESSAGE_RECEIVER, MESSAGE_ROUTER):
+            etxt = "Method '{}' of {} is forbidden."
+            raise ReceiverError(etxt.format(name, obj, pinfo))
+        if meth_type == MESSAGE_RECEIVER and index != max_index:
+            etxt = "Got receiver method '{}' of {}, expected router."
+            raise ReceiverError(etxt.format(name, obj))
+        if meth_type == MESSAGE_ROUTER and index == max_index:
+            etxt = "Got router method '{}' of {}, expected receiver."
+            raise ReceiverError(etxt.format(name, obj))
+
+        if (meth.__sign__ == INTERNAL_USER_SIGN and
+                sign not in (INTERNAL_SIGN, USER_SIGN)):
+            raise SignError("Necessary internal or user's sign.")
+        elif meth.__sign__ == INTERNAL_SIGN and sign != INTERNAL_SIGN:
+            raise SignError("Necessary internal sign.")
+        elif meth.__sign__ == USER_SIGN and sign != USER_SIGN:
+            raise SignError("Necessary user's sign.")
+
+        if meth_type == MESSAGE_ROUTER:
             if not root:
-                obj.proxy_method(rest_path, sign, kwargs)
-                return dummy_generator()
-            return partial(meth, rest_path, sign)
-        else:
-            etxt = '{} has no method {}. {}'
-            raise ReceiverError(etxt.format(obj, name,  pinfo))
-
-    meth_type = getattr(meth, '__receiver__method__', '')
-    if meth_type not in (MESSAGE_RECEIVER, MESSAGE_ROUTER):
-        etxt = "Method '{}' of {} is forbidden. {}"
-        raise ReceiverError(etxt.format(name, obj, pinfo))
-    if meth_type == MESSAGE_RECEIVER and index != max_index:
-        etxt = "Got receiver method '{}' of {}, expected router. {}"
-        raise ReceiverError(etxt.format(name, obj, pinfo))
-    if meth_type == MESSAGE_ROUTER and index == max_index:
-        etxt = "Got router method '{}' of {}, expected receiver. {}"
-        raise ReceiverError(etxt.format(name, obj, pinfo))
-
-    if (meth.__sign__ == INTERNAL_USER_SIGN and
-            sign not in (INTERNAL_SIGN, USER_SIGN)):
-        raise SignError("Necessary internal or user's sign")
-    elif meth.__sign__ == INTERNAL_SIGN and sign != INTERNAL_SIGN:
-        raise SignError("Necessary internal sign")
-    elif meth.__sign__ == USER_SIGN and sign != USER_SIGN:
-        raise SignError("Necessary user's sign")
-
-    if meth_type == MESSAGE_ROUTER:
-        if not root:
-            return meth(path, kwargs, sign, index)
-        return partial(meth, path, kwargs, sign, index)
-    if meth_type == MESSAGE_RECEIVER:
-        if not root:
-            return meth(kwargs)
-        return partial(meth, kwargs)
+                return meth(path, kwargs, sign, index)
+            return partial(meth, path, kwargs, sign, index)
+        if meth_type == MESSAGE_RECEIVER:
+            if not root:
+                return meth(kwargs)
+            return partial(meth, kwargs)
+    except Exception:
+        type, value, traceback = sys.exc_info()
+        args = list(value.args)
+        args[0] = '{} {}'.format(args[0], pinfo)
+        raise type(*args)
 
 
 def message_router(sign=None, pass_sign=False):

@@ -1,4 +1,5 @@
 import argparse
+import logging
 from random import choice
 
 from tornado.ioloop import IOLoop
@@ -150,6 +151,8 @@ class ConnManager(LocationMixin, DistributedConnectionManager):
 
 def main(options):
     install()
+    level = logging.DEBUG if options.debug else logging.INFO
+    logging.basicConfig(level=level)
     config = Config.load_yaml(options.config)
     msgman = MessageManager(config)
     msgman.connect()
@@ -173,5 +176,7 @@ if __name__ == '__main__':
                         type=int, required=True)
     parser.add_argument('-c', '--config', action='store', dest='config',
                         help='path to config file', type=str, required=True)
+    parser.add_argument('-d', '--debug', action='store_true',
+                        dest='debug', help='Set debug level of logging')
     options = parser.parse_args()
     main(options)

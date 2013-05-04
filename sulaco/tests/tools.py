@@ -1,4 +1,5 @@
 import subprocess
+import logging
 import socket
 import unittest
 from collections import deque
@@ -100,12 +101,20 @@ class BlockingClient(SimpleProtocol):
     def flush(self):
         self._buffer = deque()
 
+    def on_close(self):
+        pass
+
 
 class BasicFuncTest(unittest.TestCase):
+    debug = True # set DEBUG level of logging
+
     dirname = path.dirname(path.abspath(__file__))
     config = path.join(dirname, 'config.yaml')
 
     def setUp(self):
+        level = logging.DEBUG if self.debug else logging.INFO
+        logging.basicConfig(level=level)
+
         self._servers = []
         self._clients = []
         self._locations = {}
@@ -141,6 +150,8 @@ class BasicFuncTest(unittest.TestCase):
             p = path.join(self.dirname, 'server.py')
             args = ['python', p, '-p', port, '-mc',
                     max_conn, '-c', self.config]
+            if self.debug:
+                args.append('--debug')
             s = subprocess.Popen(args)
             self._servers.append(s)
         sleep(.4)
@@ -157,6 +168,8 @@ class BasicFuncTest(unittest.TestCase):
                     '-pull', pull,
                     '-ident', ident,
                     '-c', self.config]
+            if self.debug:
+                args.append('--debug')
             l = subprocess.Popen(args)
             self._locations[ident] = l
         sleep(.5)

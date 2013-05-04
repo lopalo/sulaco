@@ -1,7 +1,9 @@
+import logging
+import zmq
+
 from collections import defaultdict
 from functools import partial
-
-import zmq
+from tornado.stack_context import ExceptionStackContext
 
 from sulaco import (PUBLIC_MESSAGE_FROM_LOCATION_PREFIX,
                     PRIVATE_MESSAGE_FROM_LOCATION_PREFIX)
@@ -10,6 +12,9 @@ from sulaco.outer_server import (
     SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX)
 from sulaco.utils import Sender
 from sulaco.utils.receiver import root_dispatch, SignError, USER_SIGN
+
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionHandler(object):
@@ -26,8 +31,13 @@ class ConnectionHandler(object):
         super().on_open(*args)
         self._connman.add_connection(self)
 
+    def send(self, message):
+        super().send(message)
+        logger.debug("Message sent: %s", message)
+
     def on_message(self, message):
         super().on_message(message)
+        logger.debug("Received message: %s", message)
         path = message['path'].split('.')
         kwargs = message['kwargs']
         kwargs['conn'] = self
@@ -37,19 +47,16 @@ class ConnectionHandler(object):
             sign = USER_SIGN
         else:
             sign = None
-        try:
+        with ExceptionStackContext(self.exception_handler):
             root_dispatch(self._root, path, kwargs, sign)
-        except SignError:
-            #TODO: log
-            self._on_sign_error()
-        #TODO: catch other exceptions and write them to log
+
+    def exception_handler(self, type, value, traceback):
+        logger.exception('Exception in message handler')
+        return True
 
     def on_close(self):
         super().on_close()
         self._connman.remove_connection(self)
-
-    def _on_sign_error(self):
-        self.s.error(msg=SIGN_ERROR)
 
 
 class ConnectionManager(object):
