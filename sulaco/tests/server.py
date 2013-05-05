@@ -10,7 +10,7 @@ from sulaco.outer_server.connection_manager import (
 from sulaco.utils.receiver import (
     message_receiver, message_router, LoopbackMixin,
     ProxyMixin, USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN)
-from sulaco.utils import Config, Sender
+from sulaco.utils import Config, Sender, UTCFormatter
 from sulaco.utils.zmq import install
 from sulaco.outer_server.message_manager import MessageManager
 from sulaco.outer_server.message_manager import Root as ABCRoot
@@ -151,8 +151,13 @@ class ConnManager(LocationMixin, DistributedConnectionManager):
 
 def main(options):
     install()
-    level = logging.DEBUG if options.debug else logging.INFO
-    logging.basicConfig(level=level)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG if options.debug else logging.INFO)
+    handler = logging.StreamHandler()
+    handler.setFormatter(UTCFormatter())
+    logger.addHandler(handler)
+
     config = Config.load_yaml(options.config)
     msgman = MessageManager(config)
     msgman.connect()
@@ -177,6 +182,6 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', action='store', dest='config',
                         help='path to config file', type=str, required=True)
     parser.add_argument('-d', '--debug', action='store_true',
-                        dest='debug', help='Set debug level of logging')
+                        dest='debug', help='set debug level of logging')
     options = parser.parse_args()
     main(options)

@@ -7,7 +7,7 @@ from time import time
 from zmq.eventloop import zmqstream
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from sulaco.utils import Config
+from sulaco.utils import Config, UTCFormatter
 from sulaco.utils.zmq import install
 
 from sulaco import (
@@ -19,7 +19,7 @@ from sulaco.location_server import (
     CONNECT_MESSAGE)
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('location_manager')
 
 
 def start_location_manager(config):
@@ -101,10 +101,23 @@ def start_location_manager(config):
 
 if __name__ == "__main__":
     install()
-    #TODO: setup logger
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', action='store', dest='config',
                         help='path to config file', type=str, required=True)
+    parser.add_argument('-d', '--debug', action='store_true',
+                        dest='debug', help='set debug level of logging')
+    parser.add_argument('-lf', '--log-file', action='store', dest='log_file',
+                        help='path to log file', type=str, default=None)
     options = parser.parse_args()
+
+    logger.setLevel(logging.DEBUG if options.debug else logging.INFO)
+    logger.propagate = False
+    if options.log_file is None:
+        handler = logging.StreamHandler()
+    else:
+        handler = logging.FileHandler(options.log_file)
+    handler.setFormatter(UTCFormatter())
+    logger.addHandler(handler)
     start_location_manager(Config.load_yaml(options.config))
 

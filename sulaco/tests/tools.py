@@ -9,7 +9,7 @@ from os import path
 from tornado.iostream import IOStream
 from tornado.ioloop import IOLoop
 from sulaco.outer_server.tcp_server import SimpleProtocol
-from sulaco.utils import Sender
+from sulaco.utils import Sender, UTCFormatter
 
 
 class TimeoutError(Exception):
@@ -112,8 +112,11 @@ class BasicFuncTest(unittest.TestCase):
     config = path.join(dirname, 'config.yaml')
 
     def setUp(self):
-        level = logging.DEBUG if self.debug else logging.INFO
-        logging.basicConfig(level=level)
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
+        handler = logging.StreamHandler()
+        handler.setFormatter(UTCFormatter())
+        logger.addHandler(handler)
 
         self._servers = []
         self._clients = []

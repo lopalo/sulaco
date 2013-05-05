@@ -1,3 +1,5 @@
+import time
+import logging
 import yaml
 
 
@@ -51,4 +53,13 @@ class SubclassError(Exception):
     def __init__(self, name, cls):
         text = "'{}' should be a subclass of {}".format(name, cls)
         super().__init__(text)
+
+
+class UTCFormatter(logging.Formatter):
+    converter = time.gmtime
+    fmt = '[%(asctime)s] %(levelname)s %(name)s: %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
+
+    def __init__(self):
+        super().__init__(self.fmt, self.datefmt)
 
