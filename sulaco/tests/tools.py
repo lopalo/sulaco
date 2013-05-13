@@ -30,8 +30,8 @@ class BlockingClient(SimpleProtocol):
         stream = IOStream(sock)
         super().__init__(stream)
 
-    def connect(self, port, seconds=5):
-        super().connect(('', port))
+    def connect(self, port, host='', seconds=5):
+        super().connect((host, port))
         return self._wait(seconds)
 
     def recv(self, seconds=5, path_prefix='', kwargs_contain={}):

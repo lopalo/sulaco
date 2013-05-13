@@ -32,10 +32,12 @@ def start_location_manager(config):
         del last_heartbeats[loc_id]
         msg = LOCATION_DISCONNECTED_PREFIX + loc_id
         pub_sock.send_multipart([msg.encode('utf-8'), b'null'])
+        logger.info("Location '%s' disconnected", loc_id)
 
     ### handlers ###
 
     def request(stream, parts):
+        logger.debug("Parts of request message: %s", parts)
         msg = parts[0].decode('utf-8')
         if msg == CONNECT_MESSAGE:
             loc_id, data = parts[1:]
@@ -49,6 +51,7 @@ def start_location_manager(config):
             pub_sock.send(data)
             locations[loc_id] = json.loads(data.decode('utf-8'))
             last_heartbeats[loc_id] = time()
+            logger.info("Location '%s' connected", loc_id)
         elif msg == GET_LOCATIONS_INFO:
             stream.send(LOCATIONS_INFO.encode('utf-8'), zmq.SNDMORE)
             stream.send_json(locations)
@@ -56,6 +59,7 @@ def start_location_manager(config):
             logger.warning('Unknown request message: %s', msg)
 
     def input(parts):
+        logger.debug("Parts of input message: %s", parts)
         msg, loc_id = parts
         msg = msg.decode('utf-8')
         loc_id = loc_id.decode('utf-8')
@@ -74,6 +78,7 @@ def start_location_manager(config):
 
 
     def heartbeats_checker():
+        logger.debug('Check heartbeats')
         for loc_id, t in last_heartbeats.copy().items():
             if time() - t < conf.max_heartbeat_silence:
                 continue

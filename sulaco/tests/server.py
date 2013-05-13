@@ -41,10 +41,6 @@ class Root(ABCRoot, LoopbackMixin):
         self.lbs.location.enter(uid=uid, location=loc)
 
     @message_receiver(USER_SIGN)
-    def method_signed(self):
-        pass
-
-    @message_receiver(USER_SIGN)
     def send_to_user(self, text, receiver, uid, **kwargs):
         self._connman.us(receiver).message_from_user(text=text, uid=uid)
 

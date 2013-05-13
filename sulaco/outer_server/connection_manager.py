@@ -8,7 +8,6 @@ from tornado.stack_context import ExceptionStackContext
 from sulaco import (PUBLIC_MESSAGE_FROM_LOCATION_PREFIX,
                     PRIVATE_MESSAGE_FROM_LOCATION_PREFIX)
 from sulaco.outer_server import (
-    SIGN_ERROR, MAX_CONNECTION_ERROR,
     SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX)
 from sulaco.utils import Sender
 from sulaco.utils.receiver import root_dispatch, SignError, USER_SIGN

@@ -54,6 +54,7 @@ class MessageManager(object):
         self._sub_to_locman.connect(config.location_manager.pub_address)
         self._sub_to_locman.setsockopt(zmq.SUBSCRIBE, b'')
         zmqstream.ZMQStream(self._sub_to_locman).on_recv(self._on_message)
+        #TODO: make request to location manager to obtain info for all location
 
         # create socket for receiving of messages from locations
         self.sub_to_locs = context.socket(zmq.SUB)
@@ -90,6 +91,8 @@ class MessageManager(object):
     def exception_handler(self, type, value, traceback):
         logger.exception('Exception in message handler')
         return True
+
+    #TODO: split handlers to subclasses: MessageMixin, LocationMixin
 
     @message_handler(SEND_BY_UID_PREFIX)
     def send_by_uid(self, uid, msg):

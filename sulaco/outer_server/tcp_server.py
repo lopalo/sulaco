@@ -5,7 +5,6 @@ from abc import ABCMeta, abstractmethod
 from tornado.tcpserver import TCPServer as BasicTCPServer
 
 from sulaco.outer_server.connection_manager import ConnectionHandler
-from sulaco.outer_server import MAX_CONNECTION_ERROR
 from sulaco.utils import SubclassError
 
 
