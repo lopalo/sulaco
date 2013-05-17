@@ -13,7 +13,7 @@ class Config(object):
     @classmethod
     def load_yaml(cls, filename):
         with open(filename, 'rb') as f:
-            dct = yaml.load(f)
+            dct = yaml.safe_load(f)
             return cls(dct, True)
 
     def __getattribute__(self, name):

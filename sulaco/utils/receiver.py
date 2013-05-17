@@ -1,5 +1,4 @@
 import sys
-import json
 from abc import ABCMeta, abstractmethod
 from types import GeneratorType
 from functools import wraps, partial

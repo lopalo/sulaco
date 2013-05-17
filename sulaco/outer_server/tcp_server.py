@@ -34,6 +34,7 @@ class TCPServer(BasicTCPServer):
 
 
 class ABCProtocol(object, metaclass=ABCMeta):
+
     @abstractmethod
     def send(self, message):
         pass
