@@ -39,6 +39,7 @@ class Client(BasicClient):
 
     get = return_future(BasicClient.get)
     set = return_future(BasicClient.set)
+    delete = return_future(BasicClient.delete)
     setnx = return_future(BasicClient.setnx)
     exists = return_future(BasicClient.exists)
 

@@ -9,9 +9,9 @@ class LockError(Exception):
 
 class BasicLock(metaclass=ABCMeta):
 
-    def __init__(self, check_period=0.005):
+    def __init__(self, check_period=0.005, ioloop=None):
         self._check_period = check_period # seconds
-        self._ioloop = IOLoop.instance()
+        self._ioloop = ioloop or IOLoop.instance()
 
     @abstractmethod
     def acquire(self, key, blocking=True):
@@ -19,14 +19,14 @@ class BasicLock(metaclass=ABCMeta):
 
     @abstractmethod
     def release(self, key):
+        """ Should return iterable """
         pass
 
 
 class Lock(BasicLock):
-    #TODO: write test checking of ioloop._timeouts
 
-    def __init__(self, check_period=0.005):
-        super().__init__(check_period)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._keys = set()
 
     def acquire(self, key, blocking=True):
@@ -34,7 +34,7 @@ class Lock(BasicLock):
             if blocking:
                 while key in self._keys:
                     time = self._ioloop.time() + self._check_period
-                    yield Task(self._ioloop.add_timeout, time)
+                    yield Task(self._ioloop.add_timeout, time) #TODO: implement async sleep
             else:
                 return False
         self._keys.add(key)
@@ -44,4 +44,31 @@ class Lock(BasicLock):
         if not key in self._keys:
             raise LockError('Try to release unlocked lock')
         self._keys.remove(key)
+        return []
+
+
+class RedisLock(BasicLock):
+    #TODO: add timeout
+
+    def __init__(self, *args, **kwargs):
+        self._client = kwargs.pop('client')
+        super().__init__(*args, **kwargs)
+
+    def acquire(self, key, blocking=True):
+        ok = yield self._client.setnx(key, 1)
+        if ok:
+            return True
+        if not blocking:
+            return False
+        while not ok:
+            time = self._ioloop.time() + self._check_period
+            yield Task(self._ioloop.add_timeout, time)
+            ok = yield self._client.setnx(key, 1)
+        return True
+
+    def release(self, key):
+        ok = yield self._client.delete(key)
+        if not ok:
+            raise LockError('Try to release unlocked lock')
+
 
