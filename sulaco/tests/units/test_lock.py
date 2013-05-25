@@ -2,6 +2,7 @@ from time import time
 from tornado import testing
 from tornado import gen
 from sulaco.redis import Client
+from sulaco.utils import async_sleep
 from sulaco.utils.lock import Lock, RedisLock, LockError
 
 
@@ -10,17 +11,20 @@ class BasicTestLock(object):
 
     key = 'test_key'
 
+    @testing.gen_test
     def test_not_blocking(self):
         ok = yield from self.lock.acquire(self.key, blocking=False)
         self.assertTrue(ok)
         ok = yield from self.lock.acquire(self.key, blocking=False)
         self.assertFalse(ok)
-        yield from self.lock.release(self.key)
+        self.lock.release(self.key)
+        yield async_sleep(0.01, self.io_loop)
         ok = yield from self.lock.acquire(self.key, blocking=False)
         self.assertTrue(ok)
 
+    @testing.gen_test
     def test_blocking(self):
-        self._blocking_coroutine(1)
+        self._blocking_coroutine(1) # run in parallel
         start = time()
         yield from self.lock.acquire(self.key)
         self.assertLessEqual(1, time() - start)
@@ -28,32 +32,26 @@ class BasicTestLock(object):
     @gen.coroutine
     def _blocking_coroutine(self, dtime):
         yield from self.lock.acquire(self.key)
-        yield gen.Task(self.io_loop.add_timeout, time() + dtime)
-        yield from self.lock.release(self.key)
+        yield async_sleep(dtime, self.io_loop)
+        self.lock.release(self.key)
 
     def test_release_unlocked(self):
         with self.assertRaisesRegexp(LockError,
                     'Try to release unlocked lock'):
-            yield from self.lock.release(self.key)
+            self.lock.release(self.key)
+            self.wait(timeout=0.1)
 
+    @testing.gen_test
+    def test_timeout_error(self):
+        yield from self.lock.acquire(self.key)
+        with self.assertRaisesRegexp(LockError, 'Timeout expired'):
+            yield from self.lock.acquire(self.key, timeout=0.5)
 
 class TestLock(BasicTestLock, testing.AsyncTestCase):
 
     def setUp(self):
         super().setUp()
         self.lock = Lock(ioloop=self.io_loop)
-
-    @testing.gen_test
-    def test_not_blocking(self):
-        yield from super().test_not_blocking()
-
-    @testing.gen_test
-    def test_blocking(self):
-        yield from super().test_blocking()
-
-    @testing.gen_test
-    def test_release_unlocked(self):
-        yield from super().test_release_unlocked()
 
 
 class TestRedisLock(BasicTestLock, testing.AsyncTestCase):
@@ -64,21 +62,16 @@ class TestRedisLock(BasicTestLock, testing.AsyncTestCase):
         super().setUp()
         self.client = Client(selected_db=self.db, io_loop=self.io_loop)
         self.lock = RedisLock(ioloop=self.io_loop, client=self.client)
+        self.client.delete(self.lock.key_prefix + self.key,
+                                callback=lambda r: self.stop())
+        self.wait()
 
     @testing.gen_test
-    def test_not_blocking(self):
-        yield self.client.delete(self.key)
-        yield from super().test_not_blocking()
-
-    @testing.gen_test
-    def test_blocking(self):
-        yield self.client.delete(self.key)
-        yield from super().test_blocking()
-
-    @testing.gen_test
-    def test_release_unlocked(self):
-        yield self.client.delete(self.key)
-        yield from super().test_release_unlocked()
+    def test_ttl(self):
+        yield from self.lock.acquire(self.key)
+        yield async_sleep(0.01, self.io_loop)
+        ret = yield self.client.ttl(self.lock.key_prefix + self.key)
+        self.assertLessEqual(50, ret)
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@ from sulaco.utils import InstanceError
 from sulaco.utils.receiver import INTERNAL_SIGN, root_dispatch
 from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,
-    LocationMixin)
+    LocationConnectionManager)
 
 
 logger = logging.getLogger(__name__)
@@ -28,46 +28,18 @@ def message_handler(prefix):
     return wrapper
 
 
-class MessageManager(object):
+class BasicMessageManager(object):
 
     def __init__(self, config):
         self._collect_handlers()
         self._config = config
-        self.loc_input_sockets = {}
-        self._loc_pub_addresses = {}
         self._context = None
 
     def connect(self):
-        self._context = context = zmq.Context()
-        config = self._config
-
-        # setup connections with broker
-        self.pub_to_broker = context.socket(zmq.PUB)
-        self.pub_to_broker.connect(config.message_broker.sub_address)
-
-        self.sub_to_broker = context.socket(zmq.SUB)
-        self.sub_to_broker.connect(config.message_broker.pub_address)
-        zmqstream.ZMQStream(self.sub_to_broker).on_recv(self._on_message)
-
-        # setup connection with location_manager
-        self._sub_to_locman = context.socket(zmq.SUB)
-        self._sub_to_locman.connect(config.location_manager.pub_address)
-        self._sub_to_locman.setsockopt(zmq.SUBSCRIBE, b'')
-        zmqstream.ZMQStream(self._sub_to_locman).on_recv(self._on_message)
-        #TODO: make request to location manager to obtain info for all location
-
-        # create socket for receiving of messages from locations
-        self.sub_to_locs = context.socket(zmq.SUB)
-        zmqstream.ZMQStream(self.sub_to_locs).on_recv(self._on_message)
+        self._context = zmq.Context()
 
     def setup(self, connman, root):
-        if not isinstance(connman, DistributedConnectionManager):
-            raise InstanceError('connman', DistributedConnectionManager)
-        if not isinstance(connman, LocationMixin):
-            raise InstanceError('connman', LocationMixin)
         self._connman = connman
-        if not isinstance(root, Root):
-            raise InstanceError('root', Root)
         self._root = root
 
     def _collect_handlers(self):
@@ -92,7 +64,19 @@ class MessageManager(object):
         logger.exception('Exception in message handler')
         return True
 
-    #TODO: split handlers to subclasses: MessageMixin, LocationMixin
+
+class MessageManager(BasicMessageManager):
+
+    def connect(self):
+        super().connect()
+
+        # setup connections with broker
+        self.pub_to_broker = self._context.socket(zmq.PUB)
+        self.pub_to_broker.connect(self._config.message_broker.sub_address)
+
+        self.sub_to_broker = self._context.socket(zmq.SUB)
+        self.sub_to_broker.connect(self._config.message_broker.pub_address)
+        zmqstream.ZMQStream(self.sub_to_broker).on_recv(self._on_message)
 
     @message_handler(SEND_BY_UID_PREFIX)
     def send_by_uid(self, uid, msg):
@@ -101,6 +85,33 @@ class MessageManager(object):
     @message_handler(PUBLISH_TO_CHANNEL_PREFIX)
     def publish_to_channel(self, channel, msg):
         self._connman.publish_to_channel(channel, msg, True)
+
+    def setup(self, connman, root):
+        if not isinstance(connman, DistributedConnectionManager):
+            raise InstanceError('connman', DistributedConnectionManager)
+        super().setup(connman, root)
+
+
+class LocationMessageManager(BasicMessageManager):
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.loc_input_sockets = {}
+        self._loc_pub_addresses = {}
+
+    def connect(self):
+        super().connect()
+
+        # setup connection with location_manager
+        self._sub_to_locman = self._context.socket(zmq.SUB)
+        self._sub_to_locman.connect(self._config.location_manager.pub_address)
+        self._sub_to_locman.setsockopt(zmq.SUBSCRIBE, b'')
+        zmqstream.ZMQStream(self._sub_to_locman).on_recv(self._on_message)
+        #TODO: make request to location manager to obtain info for all locations
+
+        # create socket for receiving of messages from locations
+        self.sub_to_locs = self._context.socket(zmq.SUB)
+        zmqstream.ZMQStream(self.sub_to_locs).on_recv(self._on_message)
 
     @message_handler(LOCATION_CONNECTED_PREFIX)
     def add_location(self, loc_id, data):
@@ -138,8 +149,16 @@ class MessageManager(object):
         kwargs['uid'] = int(uid)
         root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
 
+    def setup(self, connman, root):
+        if not isinstance(connman, LocationConnectionManager):
+            raise InstanceError('connman', LocationConnectionManager)
+        if not isinstance(root, LocationRoot):
+            raise InstanceError('root', LocationRoot)
+        super().setup(connman, root)
 
-class Root(object, metaclass=ABCMeta):
+
+class LocationRoot(object, metaclass=ABCMeta):
+
     @abstractmethod
     def location_added(self):
         pass

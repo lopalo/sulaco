@@ -4,7 +4,7 @@ from mock import Mock, call
 from sulaco.outer_server.tcp_server import SimpleProtocol
 from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,
-    LocationMixin, ConnectionHandler)
+    LocationConnectionManager, ConnectionHandler)
 
 
 class Protocol(ConnectionHandler, SimpleProtocol):
@@ -73,16 +73,18 @@ class TestDistributedConnectionManager(unittest.TestCase):
         connman._sub_socket.setsockopt.call_args_list)
 
 
-class LocationConnectionManager(LocationMixin, DistributedConnectionManager):
+class LocationDistributedConnectionManager(LocationConnectionManager,
+                                           DistributedConnectionManager):
     pass
 
 
-class TestLocationMixin(unittest.TestCase):
+class TestLocationDistributedConnectionManager(unittest.TestCase):
 
     def setUp(self):
-        self.connman = LocationConnectionManager(pub_socket=Mock(),
-                                                 sub_socket=Mock(),
-                                                 locations_sub_socket=Mock())
+        self.connman = LocationDistributedConnectionManager(
+            pub_socket=Mock(),
+            sub_socket=Mock(),
+            locations_sub_socket=Mock())
 
     def get_connection(self):
         conn = Protocol(Mock())

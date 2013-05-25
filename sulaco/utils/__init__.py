@@ -2,6 +2,9 @@ import time
 import logging
 import yaml
 
+from tornado.ioloop import IOLoop
+from tornado.gen import Task
+
 
 class Config(object):
 
@@ -62,4 +65,10 @@ class UTCFormatter(logging.Formatter):
 
     def __init__(self):
         super().__init__(self.fmt, self.datefmt)
+
+
+def async_sleep(seconds, ioloop=None):
+    ioloop = ioloop or IOLoop.instance()
+    time = ioloop.time() + seconds
+    return Task(ioloop.add_timeout, time)
 

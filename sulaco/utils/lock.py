@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from tornado.ioloop import IOLoop
-from tornado.gen import Task
+from sulaco.utils import async_sleep
 
 
 class LockError(Exception):
@@ -9,17 +9,15 @@ class LockError(Exception):
 
 class BasicLock(metaclass=ABCMeta):
 
-    def __init__(self, check_period=0.005, ioloop=None):
-        self._check_period = check_period # seconds
+    def __init__(self, ioloop=None):
         self._ioloop = ioloop or IOLoop.instance()
 
     @abstractmethod
-    def acquire(self, key, blocking=True):
+    def acquire(self, key, blocking=True, timeout=10, check_period=0.005):
         pass
 
     @abstractmethod
     def release(self, key):
-        """ Should return iterable """
         pass
 
 
@@ -29,12 +27,14 @@ class Lock(BasicLock):
         super().__init__(*args, **kwargs)
         self._keys = set()
 
-    def acquire(self, key, blocking=True):
+    def acquire(self, key, blocking=True, timeout=10, check_period=0.005):
         if key in self._keys:
             if blocking:
+                start = self._ioloop.time()
                 while key in self._keys:
-                    time = self._ioloop.time() + self._check_period
-                    yield Task(self._ioloop.add_timeout, time) #TODO: implement async sleep
+                    yield async_sleep(check_period, self._ioloop)
+                    if self._ioloop.time() - start >= timeout:
+                        raise LockError('Timeout expired')
             else:
                 return False
         self._keys.add(key)
@@ -44,30 +44,39 @@ class Lock(BasicLock):
         if not key in self._keys:
             raise LockError('Try to release unlocked lock')
         self._keys.remove(key)
-        return []
 
 
 class RedisLock(BasicLock):
-    #TODO: add timeout
+    key_prefix = 'redis_lock:'
+    key_ttl = 60
 
     def __init__(self, *args, **kwargs):
         self._client = kwargs.pop('client')
         super().__init__(*args, **kwargs)
 
-    def acquire(self, key, blocking=True):
+    def acquire(self, key, blocking=True, timeout=10, check_period=0.005):
+        key = self.key_prefix + str(key)
+        ttl = timeout * self.key_ttl
         ok = yield self._client.setnx(key, 1)
         if ok:
+            self._client.expire(key, self.key_ttl) # set without waiting
             return True
         if not blocking:
             return False
+        start = self._ioloop.time()
         while not ok:
-            time = self._ioloop.time() + self._check_period
-            yield Task(self._ioloop.add_timeout, time)
+            yield async_sleep(check_period, self._ioloop)
+            if self._ioloop.time() - start >= timeout:
+                raise LockError('Timeout expired')
             ok = yield self._client.setnx(key, 1)
+        self._client.expire(key, self.key_ttl) # set without waiting
         return True
 
     def release(self, key):
-        ok = yield self._client.delete(key)
+        key = self.key_prefix + str(key)
+        self._client.delete(key, callback=self._check_release) # check without waiting
+
+    def _check_release(self, ok):
         if not ok:
             raise LockError('Try to release unlocked lock')
 

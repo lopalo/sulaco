@@ -197,7 +197,7 @@ class DistributedConnectionManager(ConnectionManager):
         self._pub_socket.send_json(msg)
 
 
-class LocationMixin(object):
+class LocationConnectionManager(ConnectionManager):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

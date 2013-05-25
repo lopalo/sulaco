@@ -37,14 +37,20 @@ class ConnectionPool(BasicConnectionPool):
 
 class Client(BasicClient):
 
-    get = return_future(BasicClient.get)
-    set = return_future(BasicClient.set)
-    delete = return_future(BasicClient.delete)
-    setnx = return_future(BasicClient.setnx)
-    exists = return_future(BasicClient.exists)
+    future_methods = (
+        # keys, strings
+        'get',
+        'set',
+        'delete',
+        'setnx',
+        'exists',
+        'ttl',
+        # hashes
+        'hget',
+        'hset')
 
-    hget = return_future(BasicClient.hget)
-    hset = return_future(BasicClient.hset)
+    for mname in future_methods:
+        locals()[mname] = return_future(getattr(BasicClient, mname))
 
     #TODO: use hiredis-py for parsing replies
 

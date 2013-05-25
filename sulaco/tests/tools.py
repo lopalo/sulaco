@@ -1,11 +1,12 @@
 import subprocess
 import logging
 import socket
-import unittest
+
 from collections import deque
 from time import time, sleep
 from os import path
 
+from tornado import testing
 from tornado.iostream import IOStream
 from tornado.ioloop import IOLoop
 from sulaco.outer_server.tcp_server import SimpleProtocol
@@ -18,13 +19,13 @@ class TimeoutError(Exception):
 
 class BlockingClient(SimpleProtocol):
 
-    def __init__(self):
+    def __init__(self, ioloop=None):
         self._result = None
         self._timeout_error = None
         self._kwargs_contain = None
         self._path_prefix = None
         self._buffer = deque()
-        self._loop = IOLoop.instance()
+        self._loop = ioloop or IOLoop.instance()
         self.s = Sender(self.send)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         stream = IOStream(sock)
@@ -105,7 +106,7 @@ class BlockingClient(SimpleProtocol):
         pass
 
 
-class BasicFuncTest(unittest.TestCase):
+class BasicFuncTest(testing.AsyncTestCase):
     debug = True # set DEBUG level of logging
 
     dirname = path.dirname(path.abspath(__file__))
