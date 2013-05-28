@@ -1,6 +1,6 @@
 import unittest
 import zmq
-from mock import Mock, call
+from unittest.mock import Mock, call
 from sulaco.outer_server.tcp_server import SimpleProtocol
 from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,

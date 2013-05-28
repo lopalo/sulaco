@@ -1,13 +1,14 @@
 import zlib
 
 from bisect import bisect
+from functools import partial
 from tornado.gen import coroutine
 from tornado.concurrent import return_future
 from tornadoredis import (
     Client as BasicClient,
     ConnectionPool as BasicConnectionPool,
     Connection as BasicConnection)
-
+from tornadoredis.client import Pipeline as BasicPipeline
 
 class Connection(BasicConnection):
 
@@ -26,16 +27,18 @@ class Connection(BasicConnection):
 
 
 class ConnectionPool(BasicConnectionPool):
+    conn_cls = Connection
 
     def make_connection(self):
         "Create a new connection"
         if self._created_connections >= self.max_connections:
             return None
         self._created_connections += 1
-        return Connection(**self.connection_kwargs)
+        return self.conn_cls(**self.connection_kwargs)
 
 
 class Client(BasicClient):
+    pipeline_cls = None
 
     future_methods = (
         # keys, strings
@@ -54,10 +57,35 @@ class Client(BasicClient):
 
     #TODO: use hiredis-py for parsing replies
 
+    def pipeline(self, transactional=False):
+        if not self._pipeline:
+            self._pipeline = self.pipeline_cls(
+                transactional=transactional,
+                selected_db=self.selected_db,
+                password=self.password,
+                io_loop=self._io_loop,
+            )
+            self._pipeline.connection = self.connection
+        return self._pipeline
+
+    def __getattribute__(self, item):
+        a = object.__getattribute__(self, item)
+        if callable(a) and getattr(a, '__self__', None) is not None:
+            a = partial(a.__func__, self._weak)
+        return a
+
+
+class Pipeline(Client, BasicPipeline):
+
+    execute = return_future(BasicPipeline.execute)
+
+
+Client.pipeline_cls = Pipeline
+
 
 class RedisNodes(object):
     client_cls = Client # should be subclass of Client
-    conn_poop_cls = ConnectionPool
+    conn_pool_cls = ConnectionPool
 
     def __init__(self, *, nodes, default_max_connections=100,
                                  default_replicas=100,
@@ -67,7 +95,7 @@ class RedisNodes(object):
         self.nodes = []
         for n in nodes:
             cli = self.client_cls(
-                connection_pool=self.conn_poop_cls(
+                connection_pool=self.conn_pool_cls(
                     host=n.get('host'),
                     port=n.get('port'),
                     unix_socket_path=n.get('unix_socket_path'),
