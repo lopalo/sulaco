@@ -17,11 +17,15 @@ class TimeoutError(Exception):
     pass
 
 
+class ConnectionClosed(Exception):
+    pass
+
+
 class BlockingClient(SimpleProtocol):
 
     def __init__(self, ioloop=None):
         self._result = None
-        self._timeout_error = None
+        self._error = None
         self._kwargs_contain = None
         self._path_prefix = None
         self._buffer = deque()
@@ -60,15 +64,16 @@ class BlockingClient(SimpleProtocol):
     def _wait(self, seconds):
         loop = self._loop
         def on_timeout():
-            self._timeout_error = TimeoutError('{} seconds expired'.
-                                                    format(seconds))
+            if self._error is None:
+                self._error = TimeoutError('{} seconds expired'.
+                                                format(seconds))
             loop.stop()
         timeout = loop.add_timeout(time() + seconds, on_timeout)
         loop.start()
         loop.remove_timeout(timeout)
-        error = self._timeout_error
+        error = self._error
         result = self._result
-        self._timeout_error = None
+        self._error = None
         self._result = None
         self._kwargs_contain = None
         self._path_prefix = None
@@ -103,7 +108,7 @@ class BlockingClient(SimpleProtocol):
         self._buffer = deque()
 
     def on_close(self):
-        pass
+        self._error = ConnectionClosed()
 
 
 class BasicFuncTest(testing.AsyncTestCase):
