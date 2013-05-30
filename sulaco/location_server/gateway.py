@@ -1,5 +1,5 @@
 import signal
-import json
+import msgpack
 import logging
 import zmq
 
@@ -41,8 +41,8 @@ class Gateway(object):
                     pull_address=pull_address)
         req_socket.send(CONNECT_MESSAGE.encode('utf-8'), zmq.SNDMORE)
         req_socket.send(self._ident.encode('utf-8'), zmq.SNDMORE)
-        req_socket.send_json(data)
-        connected = req_socket.recv_json()
+        req_socket.send(msgpack.dumps(data))
+        connected = msgpack.loads(req_socket.recv(), encoding='utf-8')
         if not connected:
             return False
 
@@ -81,7 +81,8 @@ class Gateway(object):
 
     def _receive(self, parts):
         assert len(parts) == 1
-        message = json.loads(parts[0].decode('utf-8'))
+        message = msgpack.loads(parts[0], encoding='utf-8')
+        logger.debug("Received message: %s", message)
         path = message['path'].split('.')
         kwargs = message['kwargs']
         with ExceptionStackContext(self.exception_handler):
@@ -95,7 +96,7 @@ class Gateway(object):
         topic = '{}{}:{}'.format(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
                                                 self._ident, str(uid))
         self._pub_sock.send(topic.encode('utf-8'), zmq.SNDMORE)
-        self._pub_sock.send_json(msg)
+        self._pub_sock.send(msgpack.dumps(msg))
 
     def prs(self, uid):
         """ Returns private sender """
@@ -106,7 +107,7 @@ class Gateway(object):
     def public_message(self, msg):
         topic = PUBLIC_MESSAGE_FROM_LOCATION_PREFIX + self._ident
         self._pub_sock.send(topic.encode('utf-8'), zmq.SNDMORE)
-        self._pub_sock.send_json(msg)
+        self._pub_sock.send(msgpack.dumps(msg))
 
     @property
     def pubs(self):

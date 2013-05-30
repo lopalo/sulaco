@@ -1,5 +1,6 @@
 import logging
 import zmq
+import msgpack
 
 from collections import defaultdict
 from functools import partial
@@ -185,7 +186,7 @@ class DistributedConnectionManager(ConnectionManager):
             return
         topic = SEND_BY_UID_PREFIX + str(uid)
         self._pub_socket.send(topic.encode('utf-8'), zmq.SNDMORE)
-        self._pub_socket.send_json(msg)
+        self._pub_socket.send(msgpack.dumps(msg))
 
     def publish_to_channel(self, channel, msg, locally=True):
         super().publish_to_channel(channel, msg)
@@ -194,7 +195,7 @@ class DistributedConnectionManager(ConnectionManager):
             return
         topic = PUBLISH_TO_CHANNEL_PREFIX + str(channel)
         self._pub_socket.send(topic.encode('utf-8'), zmq.SNDMORE)
-        self._pub_socket.send_json(msg)
+        self._pub_socket.send(msgpack.dumps(msg))
 
 
 class LocationConnectionManager(ConnectionManager):

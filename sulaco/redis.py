@@ -140,4 +140,3 @@ class RedisNodes(object):
         for info, cli in self.nodes:
             yield cli.setnx('db_name', info['name'])
 
-#TODO: replace json using msgpack

@@ -1,4 +1,4 @@
-import json
+import msgpack
 import zmq
 import logging
 
@@ -53,10 +53,11 @@ class BasicMessageManager(object):
             self._handlers[prefix] = item
 
     def _on_message(self, parts):
-        logger.debug("Received parts: %s", parts)
         topic, body = parts
-        prefix, data = topic.decode('utf-8').split(':', 1)
-        msg = json.loads(body.decode('utf-8'))
+        topic = topic.decode('utf-8')
+        msg = msgpack.loads(body, encoding='utf-8')
+        logger.debug("Received message - topic: %s, body: %s", topic, msg)
+        prefix, data = topic.split(':', 1)
         with ExceptionStackContext(self.exception_handler):
             self._handlers[prefix + ':'](data, msg)
 

@@ -1,8 +1,10 @@
 import argparse
 import logging
+import msgpack
 from random import choice
 
 from tornado.ioloop import IOLoop
+
 from sulaco.outer_server.tcp_server import TCPServer, SimpleProtocol
 from sulaco.outer_server.connection_manager import (
     DistributedConnectionManager,
@@ -111,7 +113,7 @@ class Location(ProxyMixin):
 
     def send(self, msg):
         msg['kwargs']['uid'] = self._user.uid
-        self._loc_input.send_json(msg)
+        self._loc_input.send(msgpack.dumps(msg))
 
     @message_receiver(INTERNAL_SIGN)
     def enter(self, **kwargs):

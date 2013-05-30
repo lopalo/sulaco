@@ -1,5 +1,5 @@
 import argparse
-import json
+import msgpack
 import zmq
 import logging
 
@@ -31,7 +31,7 @@ def start_location_manager(config):
         del locations[loc_id]
         del last_heartbeats[loc_id]
         msg = LOCATION_DISCONNECTED_PREFIX + loc_id
-        pub_sock.send_multipart([msg.encode('utf-8'), b'null'])
+        pub_sock.send_multipart([msg.encode('utf-8'), msgpack.dumps(None)])
         logger.info("Location '%s' disconnected", loc_id)
 
     ### handlers ###
@@ -43,18 +43,18 @@ def start_location_manager(config):
             loc_id, data = parts[1:]
             loc_id = loc_id.decode('utf-8')
             if loc_id in locations:
-                stream.send_json(False)
+                stream.send(msgpack.dumps(False))
                 return
-            stream.send_json(True)
+            stream.send(msgpack.dumps(True))
             topic = (LOCATION_CONNECTED_PREFIX + loc_id).encode('utf-8')
             pub_sock.send(topic, zmq.SNDMORE)
             pub_sock.send(data)
-            locations[loc_id] = json.loads(data.decode('utf-8'))
+            locations[loc_id] = msgpack.loads(data, encoding='utf-8')
             last_heartbeats[loc_id] = time()
             logger.info("Location '%s' connected", loc_id)
         elif msg == GET_LOCATIONS_INFO:
             stream.send(LOCATIONS_INFO.encode('utf-8'), zmq.SNDMORE)
-            stream.send_json(locations)
+            stream.send(msgpack.dumps(locations))
         else:
             logger.warning('Unknown request message: %s', msg)
 
