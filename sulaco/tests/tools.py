@@ -113,6 +113,7 @@ class BlockingClient(SimpleProtocol):
 
 class BasicFuncTest(testing.AsyncTestCase):
     debug = True # set DEBUG level of logging
+    server_start_sleep = 0.5
 
     dirname = path.dirname(path.abspath(__file__))
     config = path.join(dirname, 'config.yaml')
@@ -163,7 +164,7 @@ class BasicFuncTest(testing.AsyncTestCase):
                 args.append('--debug')
             s = subprocess.Popen(args)
             self._servers.append(s)
-        sleep(.4)
+        sleep(self.server_start_sleep)
 
     def run_location(self, ident, pub, pull):
         self.run_locations((ident, pub, pull))
@@ -181,7 +182,8 @@ class BasicFuncTest(testing.AsyncTestCase):
                 args.append('--debug')
             l = subprocess.Popen(args)
             self._locations[ident] = l
-        sleep(.5)
+            sleep(.1)
+        sleep(self.server_start_sleep)
 
     def shutdown_location(self, ident):
         self._locations.pop(ident).terminate()

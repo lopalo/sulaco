@@ -26,6 +26,7 @@ class Root(LocationRoot, LoopbackMixin):
         self._config = config
         self._connman = connman
         self._msgman = msgman
+        self._locations = {}
         self._users = {}
 
     @message_receiver()
@@ -62,11 +63,17 @@ class Root(LocationRoot, LoopbackMixin):
         yield from next_step(Location(loc_name, user, socket,
                                 self._connman, self._config))
 
-    def location_added(self, loc_id):
+    def location_added(self, loc_id, data):
         self._connman.alls.location_added(loc_id=loc_id)
+        self._locations[loc_id] = data
 
     def location_removed(self, loc_id):
         self._connman.alls.location_removed(loc_id=loc_id)
+        del self._locations[loc_id]
+
+    @message_receiver()
+    def get_locations(self, conn, **kwargs):
+        conn.s.locations(data=list(self._locations.values()))
 
 
 class Channels(object):

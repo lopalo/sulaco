@@ -43,6 +43,7 @@ class Gateway(object):
         req_socket.send(self._ident.encode('utf-8'), zmq.SNDMORE)
         req_socket.send(msgpack.dumps(data))
         connected = msgpack.loads(req_socket.recv(), encoding='utf-8')
+        req_socket.close()
         if not connected:
             return False
 

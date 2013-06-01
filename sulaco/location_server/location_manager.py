@@ -11,7 +11,7 @@ from sulaco.utils import Config, UTCFormatter
 from sulaco.utils.zmq import install
 
 from sulaco import (
-    GET_LOCATIONS_INFO, LOCATIONS_INFO,
+    GET_LOCATIONS_INFO,
     LOCATION_DISCONNECTED_PREFIX,
     LOCATION_CONNECTED_PREFIX)
 from sulaco.location_server import (
@@ -53,7 +53,6 @@ def start_location_manager(config):
             last_heartbeats[loc_id] = time()
             logger.info("Location '%s' connected", loc_id)
         elif msg == GET_LOCATIONS_INFO:
-            stream.send(LOCATIONS_INFO.encode('utf-8'), zmq.SNDMORE)
             stream.send(msgpack.dumps(locations))
         else:
             logger.warning('Unknown request message: %s', msg)

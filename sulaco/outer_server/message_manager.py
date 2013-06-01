@@ -8,7 +8,7 @@ from tornado.stack_context import ExceptionStackContext
 
 from sulaco import (
     PUBLIC_MESSAGE_FROM_LOCATION_PREFIX,
-    PRIVATE_MESSAGE_FROM_LOCATION_PREFIX,
+    PRIVATE_MESSAGE_FROM_LOCATION_PREFIX, GET_LOCATIONS_INFO,
     LOCATION_CONNECTED_PREFIX, LOCATION_DISCONNECTED_PREFIX)
 from sulaco.outer_server import SEND_BY_UID_PREFIX, PUBLISH_TO_CHANNEL_PREFIX
 from sulaco.utils import InstanceError
@@ -108,7 +108,9 @@ class LocationMessageManager(BasicMessageManager):
         self._sub_to_locman.connect(self._config.location_manager.pub_address)
         self._sub_to_locman.setsockopt(zmq.SUBSCRIBE, b'')
         zmqstream.ZMQStream(self._sub_to_locman).on_recv(self._on_message)
-        #TODO: make request to location manager to obtain info for all locations
+
+        self._req_to_locman = self._context.socket(zmq.REQ)
+        self._req_to_locman.connect(self._config.location_manager.rep_address)
 
         # create socket for receiving of messages from locations
         self.sub_to_locs = self._context.socket(zmq.SUB)
@@ -118,11 +120,11 @@ class LocationMessageManager(BasicMessageManager):
     def add_location(self, loc_id, data):
         assert loc_id not in self.loc_input_sockets, 'location already exists'
         push_sock = self._context.socket(zmq.PUSH)
-        push_sock.connect(data['pull_address'])
+        push_sock.connect(data.pop('pull_address'))
         self.loc_input_sockets[loc_id] = push_sock
         self.sub_to_locs.connect(data['pub_address'])
-        self._loc_pub_addresses[loc_id] = data['pub_address']
-        self._root.location_added(loc_id)
+        self._loc_pub_addresses[loc_id] = data.pop('pub_address')
+        self._root.location_added(loc_id, data)
 
     @message_handler(LOCATION_DISCONNECTED_PREFIX)
     def remove_location(self, loc_id, data):
@@ -157,14 +159,23 @@ class LocationMessageManager(BasicMessageManager):
             raise InstanceError('root', LocationRoot)
         super().setup(connman, root)
 
+        # connect to existing locations
+        req_sock = self._req_to_locman
+        del self._req_to_locman
+        req_sock.send(GET_LOCATIONS_INFO.encode('utf-8'))
+        locations = msgpack.loads(req_sock.recv(), encoding='utf-8')
+        req_sock.close()
+        for loc_id, data in locations.items():
+            self.add_location(loc_id, data)
+
 
 class LocationRoot(object, metaclass=ABCMeta):
 
     @abstractmethod
-    def location_added(self):
+    def location_added(self, loc_id, data):
         pass
 
     @abstractmethod
-    def location_removed(self):
+    def location_removed(self, loc_id):
         pass
 

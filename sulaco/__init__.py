@@ -6,4 +6,3 @@ PRIVATE_MESSAGE_FROM_LOCATION_PREFIX = 'private_message_from_location:'
 
 # messages
 GET_LOCATIONS_INFO = 'get_locations_info'
-LOCATIONS_INFO = 'locations_info'

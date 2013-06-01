@@ -8,6 +8,9 @@ class TestLocationAddRemove(BasicFuncTest):
 
         c1 = self.client()
         c1.connect(7770)
+        c1.s.get_locations()
+        self.assertEqual({'data':[]},
+                c1.recv(path_prefix='locations')['kwargs'])
 
         c2 = self.client()
         c2.connect(7773)
@@ -20,6 +23,9 @@ class TestLocationAddRemove(BasicFuncTest):
         self.assertEqual({'kwargs': {'loc_id': 'loc_1'},
                           'path': 'location_added'},
                           c2.recv())
+        c1.s.get_locations()
+        self.assertEqual({'data': [{'ident': 'loc_1'}]},
+                c1.recv(path_prefix='locations')['kwargs'])
 
         self.shutdown_location('loc_1')
 
@@ -29,3 +35,6 @@ class TestLocationAddRemove(BasicFuncTest):
         self.assertEqual({'kwargs': {'loc_id': 'loc_1'},
                           'path': 'location_removed'},
                           c2.recv())
+        c1.s.get_locations()
+        self.assertEqual({'data':[]},
+                c1.recv(path_prefix='locations')['kwargs'])
