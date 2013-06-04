@@ -1,0 +1,3 @@
+[submodule "sulaco/deps/toredis"]
+	path = sulaco/deps/toredis
+	url = git@github.com:lopalo/toredis.git
