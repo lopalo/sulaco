@@ -13,5 +13,6 @@ class TestLocationAddExisting(BasicFuncTest):
         c = self.client()
         c.connect(7770)
         c.s.get_locations()
-        self.assertEqual({'data': [{'ident': 'loc_X'}, {'ident': 'loc_Y'}]},
-                c.recv(path_prefix='locations')['kwargs'])
+        ret = sorted(c.recv(path_prefix='locations')['kwargs']['data'],
+                                                key=lambda i: i['ident'])
+        self.assertEqual([{'ident': 'loc_X'}, {'ident': 'loc_Y'}], ret)

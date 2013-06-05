@@ -24,11 +24,12 @@ class TestLocationSwitch(BasicFuncTest):
                           c1.recv(kwargs_contain={'loc_id': 'loc_Y'}))
 
         c1.s.sign_id(username='user1', loc='loc_X')
+        c1.recv(path_prefix='location.init')
+        c1.recv(path_prefix='location.user_connected')
         c2.s.sign_id(username='user2', loc='loc_Y')
         c2.recv(path_prefix='location.init')
         c2.recv(path_prefix='location.user_connected')
 
-        c1.flush()
         c3.s.sign_id(username='user3', loc='loc_X')
         self.assertEqual('loc_X', c3.recv(path_prefix='location.init')
                                                     ['kwargs']['ident'])

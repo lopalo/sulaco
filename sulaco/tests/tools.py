@@ -149,6 +149,7 @@ class BasicFuncTest(testing.AsyncTestCase):
         self._locman.terminate()
         for c in self._clients:
             c.close()
+        sleep(.1)
 
     def run_server(self, port, max_conn):
         self.run_servers((port, max_conn))
@@ -182,7 +183,6 @@ class BasicFuncTest(testing.AsyncTestCase):
                 args.append('--debug')
             l = subprocess.Popen(args)
             self._locations[ident] = l
-            sleep(.1)
         sleep(self.server_start_sleep)
 
     def shutdown_location(self, ident):
