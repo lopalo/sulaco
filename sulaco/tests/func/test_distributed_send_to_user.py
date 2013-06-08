@@ -9,14 +9,14 @@ class TestDistributedSendToUser(BasicFuncTest):
         c1.connect(7770)
         c1.s.sign_id(username='user1')
         uid1 = c1.recv(path_prefix='sign_id')['kwargs']['uid']
-        self.assertEqual(1, uid1)
+        self.assertEqual('1', uid1)
 
 
         c2 = self.client()
         c2.connect(7773)
         c2.s.sign_id(username='user2')
         uid2 = c2.recv(path_prefix='sign_id')['kwargs']['uid']
-        self.assertEqual(2, uid2)
+        self.assertEqual('2', uid2)
 
         c1.s.send_to_user(receiver=uid2, text='Foo')
         self.assertEqual({'path': 'message_from_user',

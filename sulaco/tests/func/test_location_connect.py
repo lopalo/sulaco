@@ -18,20 +18,20 @@ class TestLocationConnect(BasicFuncTest):
                           c1.recv())
 
         c1.s.sign_id(username='user1')
-        self.assertEqual({'users': [{'uid': 1,
+        self.assertEqual({'users': [{'uid': '1',
                                      'username': 'user1'}],
                           'ident': 'loc_X'},
                           c1.recv(path_prefix='location.init')['kwargs'])
 
 
         c2.s.sign_id(username='user2')
-        self.assertEqual({'users': [{'uid': 1,
+        self.assertEqual({'users': [{'uid': '1',
                                      'username': 'user1'},
-                                    {'uid': 2,
+                                    {'uid': '2',
                                      'username': 'user2'}],
                           'ident': 'loc_X'},
                           c2.recv(path_prefix='location.init')['kwargs'])
         self.assertEqual(
-            {'user': {'username': 'user1', 'uid': 1}},
+            {'user': {'username': 'user1', 'uid': '1'}},
             c1.recv(path_prefix='location.user_connected')['kwargs'])
 

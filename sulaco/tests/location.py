@@ -17,8 +17,8 @@ class Root(object):
     @message_receiver(INTERNAL_SIGN)
     def enter(self, user, uid):
         self._users[uid] = user
-        self._gateway.prs(uid).init(users=list(self._users.values()),
-                                    ident=self._ident)
+        users = sorted(self._users.values(), key=lambda u: u['uid'])
+        self._gateway.prs(uid).init(users=users, ident=self._ident)
         self._gateway.pubs.user_connected(user=user)
 
     @message_receiver(INTERNAL_SIGN)

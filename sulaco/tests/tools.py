@@ -113,7 +113,7 @@ class BlockingClient(SimpleProtocol):
 
 class BasicFuncTest(testing.AsyncTestCase):
     debug = True # set DEBUG level of logging
-    server_start_sleep = 0.5
+    server_start_sleep = .5
 
     dirname = path.dirname(path.abspath(__file__))
     config = path.join(dirname, 'config.yaml')

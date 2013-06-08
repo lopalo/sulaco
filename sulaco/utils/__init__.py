@@ -72,3 +72,9 @@ def async_sleep(seconds, ioloop=None):
     time = ioloop.time() + seconds
     return Task(ioloop.add_timeout, time)
 
+
+def get_pairs(items):
+    i = iter(items)
+    while True:
+        yield next(i), next(i)
+

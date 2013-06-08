@@ -36,7 +36,7 @@ class Root(LocationRoot, LoopbackMixin):
 
     @message_receiver()
     def sign_id(self, username, conn, loc=None, **kwargs):
-        uid = int(username[-1])
+        uid = username[-1]
         assert uid not in self._users
         self._connman.bind_connection_to_uid(conn, uid)
         loc = loc or choice(self._config.user.start_locations)

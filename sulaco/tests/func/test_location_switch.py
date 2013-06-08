@@ -35,21 +35,21 @@ class TestLocationSwitch(BasicFuncTest):
                                                     ['kwargs']['ident'])
 
         self.assertEqual(
-            {'user': {'username': 'user3', 'uid': 3}},
+            {'user': {'username': 'user3', 'uid': '3'}},
             c1.recv(path_prefix='location.user_connected')['kwargs'])
 
         c3.s.location.move_to(target_location='loc_Y')
 
         self.assertEqual(
-            {'uid': 3},
+            {'uid': '3'},
             c1.recv(path_prefix='location.user_disconnected')['kwargs'])
         self.assertEqual(
-            {'user': {'uid': 3, 'username': 'user3'}},
+            {'user': {'uid': '3', 'username': 'user3'}},
             c2.recv(path_prefix='location.user_connected')['kwargs'])
         self.assertEqual({'ident': 'loc_Y',
                           'users': [{'username': 'user2',
-                                     'uid': 2},
+                                     'uid': '2'},
                                     {'username': 'user3',
-                                     'uid': 3}]},
+                                     'uid': '3'}]},
                            c3.recv(path_prefix='location.init')['kwargs'])
 
