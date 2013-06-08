@@ -9,9 +9,8 @@ from sulaco.location_server.gateway import Gateway
 
 class Root(object):
 
-    def __init__(self, gateway, ident, config):
+    def __init__(self, gateway, ident):
         self._gateway = gateway
-        self._config = config
         self._users = {}
         self._ident = ident
 
@@ -40,7 +39,7 @@ def main(options):
 
     config = Config.load_yaml(options.config)
     gateway = Gateway(config, options.ident)
-    root = Root(gateway, options.ident, config)
+    root = Root(gateway, options.ident)
     gateway.setup(root)
     connected = gateway.connect(options.pub_address, options.pull_address)
     if not connected:

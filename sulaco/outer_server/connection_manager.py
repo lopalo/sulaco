@@ -146,6 +146,9 @@ class ConnectionManager(object):
     def get_uid(self, conn):
         return self._connection_to_uid.get(conn)
 
+    def get_connection(self, uid):
+        return self._uid_to_connection.get(uid)
+
 
 class DistributedConnectionManager(ConnectionManager):
 

@@ -81,7 +81,7 @@ class MessageManager(BasicMessageManager):
 
     @message_handler(SEND_BY_UID_PREFIX)
     def send_by_uid(self, uid, msg):
-        self._connman.send_by_uid(int(uid), msg)
+        self._connman.send_by_uid(uid, msg)
 
     @message_handler(PUBLISH_TO_CHANNEL_PREFIX)
     def publish_to_channel(self, channel, msg):
@@ -141,7 +141,7 @@ class LocationMessageManager(BasicMessageManager):
 
     @message_handler(PRIVATE_MESSAGE_FROM_LOCATION_PREFIX)
     def location_private(self, location_uid, msg):
-        location, uid = location_uid.split(':')
+        location, uid = location_uid.split(':', 1)
         path_prefix = (self._config.outer_server.
                         location_handler_path.split('.'))
         path = msg['path'].split('.')
@@ -149,7 +149,7 @@ class LocationMessageManager(BasicMessageManager):
         kwargs = msg['kwargs']
         if not 'location' in kwargs:
             kwargs['location'] = location
-        kwargs['uid'] = int(uid)
+        kwargs['uid'] = uid
         root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
 
     def setup(self, connman, root):

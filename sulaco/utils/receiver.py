@@ -79,7 +79,10 @@ def _dispatch(obj, path, kwargs, sign, index, root=False):
     except Exception:
         type, value, traceback = sys.exc_info()
         args = list(value.args)
-        args[0] = '{} {}'.format(args[0], pinfo)
+        if args:
+            args[0] = '{} {}'.format(args[0], pinfo)
+        else:
+            args = [pinfo]
         raise type(*args)
 
 

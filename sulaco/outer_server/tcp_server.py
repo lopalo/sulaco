@@ -44,6 +44,10 @@ class ABCProtocol(object, metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def closed(self):
+        return
+
+    @abstractmethod
     def on_open(self):
         pass
 
@@ -90,4 +94,6 @@ class SimpleProtocol(ABCProtocol):
     def on_sent(self):
         pass
 
+    def closed(self):
+        return self._stream.closed()
 
