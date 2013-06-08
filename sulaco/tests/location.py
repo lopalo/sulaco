@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from sulaco.utils import Config, UTCFormatter
+from sulaco.utils import Config, ColorUTCFormatter
 from sulaco.utils.zmq import install
 from sulaco.utils.receiver import message_receiver, INTERNAL_SIGN
 from sulaco.location_server.gateway import Gateway
@@ -34,7 +34,7 @@ def main(options):
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG if options.debug else logging.INFO)
     handler = logging.StreamHandler()
-    handler.setFormatter(UTCFormatter())
+    handler.setFormatter(ColorUTCFormatter())
     logger.addHandler(handler)
 
     config = Config.load_yaml(options.config)

@@ -67,6 +67,27 @@ class UTCFormatter(logging.Formatter):
         super().__init__(self.fmt, self.datefmt)
 
 
+class ColorUTCFormatter(UTCFormatter):
+
+    RED = '\x1b[31m'
+    YELLOW = '\x1b[33m'
+    GREEN = '\x1b[32m'
+    CYAN = '\x1b[36m'
+
+    colors = {logging.DEBUG: CYAN,
+              logging.INFO: GREEN,
+              logging.ERROR: RED,
+              logging.WARNING: YELLOW}
+
+    def format(self, record):
+        msg = super().format(record)
+        no = record.levelno
+        if no not in self.colors:
+            return msg
+        color = self.colors[no]
+        return color + msg + '\x1b[0m'
+
+
 def async_sleep(seconds, ioloop=None):
     ioloop = ioloop or IOLoop.instance()
     time = ioloop.time() + seconds

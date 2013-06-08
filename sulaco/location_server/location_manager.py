@@ -7,7 +7,7 @@ from time import time
 from zmq.eventloop import zmqstream
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from sulaco.utils import Config, UTCFormatter
+from sulaco.utils import Config, UTCFormatter, ColorUTCFormatter
 from sulaco.utils.zmq import install
 
 from sulaco import (
@@ -119,9 +119,11 @@ if __name__ == "__main__":
     logger.propagate = False
     if options.log_file is None:
         handler = logging.StreamHandler()
+        formatter = ColorUTCFormatter()
     else:
         handler = logging.FileHandler(options.log_file)
-    handler.setFormatter(UTCFormatter())
+        formatter = UTCFormatter()
+    handler.setFormatter(formatter)
     logger.addHandler(handler)
     start_location_manager(Config.load_yaml(options.config))
 

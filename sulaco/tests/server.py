@@ -12,7 +12,7 @@ from sulaco.outer_server.connection_manager import (
 from sulaco.utils.receiver import (
     message_receiver, message_router, LoopbackMixin,
     ProxyMixin, USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN)
-from sulaco.utils import Config, Sender, UTCFormatter
+from sulaco.utils import Config, Sender, ColorUTCFormatter
 from sulaco.utils.zmq import install
 from sulaco.outer_server.message_manager import (
     MessageManager, LocationMessageManager)
@@ -164,7 +164,7 @@ def main(options):
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG if options.debug else logging.INFO)
     handler = logging.StreamHandler()
-    handler.setFormatter(UTCFormatter())
+    handler.setFormatter(ColorUTCFormatter())
     logger.addHandler(handler)
 
     config = Config.load_yaml(options.config)

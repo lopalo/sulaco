@@ -10,7 +10,7 @@ from tornado import testing
 from tornado.iostream import IOStream
 from tornado.ioloop import IOLoop
 from sulaco.outer_server.tcp_server import SimpleProtocol
-from sulaco.utils import Sender, UTCFormatter
+from sulaco.utils import Sender, ColorUTCFormatter
 
 
 class TimeoutError(Exception):
@@ -122,7 +122,7 @@ class BasicFuncTest(testing.AsyncTestCase):
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
         handler = logging.StreamHandler()
-        handler.setFormatter(UTCFormatter())
+        handler.setFormatter(ColorUTCFormatter())
         logger.addHandler(handler)
 
         self._servers = []
