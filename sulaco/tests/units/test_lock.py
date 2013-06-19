@@ -1,9 +1,8 @@
 from time import time
 from tornado import testing
 from tornado import gen
-from toredis.client import Client as BasicClient
-from toredis.commands_future import RedisCommandsFutureMixin
 from sulaco.utils import async_sleep
+from sulaco.utils.db import RedisClient
 from sulaco.utils.lock import Lock, RedisLock, LockError
 
 
@@ -55,17 +54,13 @@ class TestLock(BasicTestLock, testing.AsyncTestCase):
         self.lock = Lock(ioloop=self.io_loop)
 
 
-class Client(RedisCommandsFutureMixin, BasicClient):
-    pass
-
-
 class TestRedisLock(BasicTestLock, testing.AsyncTestCase):
     db = 0
     key = 'test_redis_lock'
 
     def setUp(self):
         super().setUp()
-        self.client = Client(io_loop=self.io_loop)
+        self.client = RedisClient(io_loop=self.io_loop)
         self.client.connect()
         self.client.select(self.db)
         self.lock = RedisLock(ioloop=self.io_loop, client=self.client)

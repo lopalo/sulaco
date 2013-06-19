@@ -58,7 +58,8 @@ class Gateway(object):
         ZMQStream(self._pull_sock).on_recv(self._receive)
         return True
 
-    def start(self):
+    def start(self, ioloop=None):
+        ioloop = ioloop or IOLoop.instance()
         def heartbeat():
             parts = (HEARTBEAT_MESSAGE.encode('utf-8'),
                      self._ident.encode('utf-8'))
@@ -67,10 +68,10 @@ class Gateway(object):
         PeriodicCallback(heartbeat, period).start()
 
         def stop(signum, frame):
-            IOLoop.instance().stop()
+            ioloop.stop()
         signal.signal(signal.SIGTERM, stop)
         try:
-            IOLoop.instance().start()
+            ioloop.start()
         finally:
             parts = (DISCONNECT_MESSAGE.encode('utf-8'),
                      self._ident.encode('utf-8'))

@@ -1,6 +1,7 @@
 from zmq.eventloop.ioloop import IOLoop as ZIOLoop, ZMQPoller
 from tornado.ioloop import PollIOLoop
 
+#TODO: use pyzmq 13.1
 
 class ZMQIOLoop(PollIOLoop):
 
