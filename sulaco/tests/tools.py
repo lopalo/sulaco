@@ -7,17 +7,13 @@ from time import time, sleep
 from os import path
 
 from tornado import testing
-from tornado.iostream import IOStream
+from tornado.iostream import IOStream, StreamClosedError
 from tornado.ioloop import IOLoop
 from sulaco.outer_server.tcp_server import SimpleProtocol
 from sulaco.utils import Sender, ColorUTCFormatter
 
 
 class TimeoutError(Exception):
-    pass
-
-
-class ConnectionClosed(Exception):
     pass
 
 
@@ -108,7 +104,7 @@ class BlockingClient(SimpleProtocol):
         self._buffer = deque()
 
     def on_close(self):
-        self._error = ConnectionClosed()
+        self._error = StreamClosedError("Stream is closed")
 
 
 class BasicFuncTest(testing.AsyncTestCase):
