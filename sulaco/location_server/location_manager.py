@@ -8,7 +8,7 @@ from zmq.eventloop import zmqstream
 from tornado.ioloop import IOLoop, PeriodicCallback
 
 from sulaco.utils import Config, UTCFormatter, ColorUTCFormatter
-from sulaco.utils.zmq import install
+from zmq.eventloop.ioloop import install
 
 from sulaco import (
     GET_LOCATIONS_INFO,
@@ -26,6 +26,7 @@ def start_location_manager(config):
     conf = config.location_manager
     locations = {}
     last_heartbeats = {}
+    ioloop = IOLoop.instance()
 
     def disconnect(loc_id):
         del locations[loc_id]
@@ -50,7 +51,7 @@ def start_location_manager(config):
             pub_sock.send(topic, zmq.SNDMORE)
             pub_sock.send(data)
             locations[loc_id] = msgpack.loads(data, encoding='utf-8')
-            last_heartbeats[loc_id] = time()
+            last_heartbeats[loc_id] = ioloop.time()
             logger.info("Location '%s' connected", loc_id)
         elif msg == GET_LOCATIONS_INFO:
             stream.send(msgpack.dumps(locations))
@@ -66,7 +67,7 @@ def start_location_manager(config):
             if loc_id not in locations:
                 logger.warning('Unknown location: %s', loc_id)
                 return
-            last_heartbeats[loc_id] = time()
+            last_heartbeats[loc_id] = ioloop.time()
         elif msg == DISCONNECT_MESSAGE:
             if loc_id not in locations:
                 logger.warning('Unknown location: %s', loc_id)
@@ -79,7 +80,7 @@ def start_location_manager(config):
     def heartbeats_checker():
         logger.debug('Check heartbeats')
         for loc_id, t in last_heartbeats.copy().items():
-            if time() - t < conf.max_heartbeat_silence:
+            if ioloop.time() - t < conf.max_heartbeat_silence:
                 continue
             disconnect(loc_id)
 
@@ -100,7 +101,7 @@ def start_location_manager(config):
     period = conf.heartbeats_checker_period * 1000
     PeriodicCallback(heartbeats_checker, period).start()
 
-    IOLoop.instance().start()
+    ioloop.start()
 
 
 if __name__ == "__main__":

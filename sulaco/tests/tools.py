@@ -64,7 +64,7 @@ class BlockingClient(SimpleProtocol):
                 self._error = TimeoutError('{} seconds expired'.
                                                 format(seconds))
             loop.stop()
-        timeout = loop.add_timeout(time() + seconds, on_timeout)
+        timeout = loop.add_timeout(loop.time() + seconds, on_timeout)
         loop.start()
         loop.remove_timeout(timeout)
         error = self._error
@@ -139,13 +139,16 @@ class BasicFuncTest(testing.AsyncTestCase):
     def tearDown(self):
         for s in self._servers:
             s.terminate()
+            s.wait()
         for l in self._locations.values():
             l.terminate()
+            l.wait()
         self._broker.terminate()
+        self._broker.wait()
         self._locman.terminate()
+        self._locman.wait()
         for c in self._clients:
             c.close()
-        sleep(.1)
 
     def run_server(self, port, max_conn):
         self.run_servers((port, max_conn))

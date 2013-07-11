@@ -2,7 +2,7 @@ import argparse
 import logging
 
 from sulaco.utils import Config, ColorUTCFormatter
-from sulaco.utils.zmq import install
+from zmq.eventloop.ioloop import install
 from sulaco.utils.receiver import message_receiver, INTERNAL_SIGN
 from sulaco.location_server.gateway import Gateway
 

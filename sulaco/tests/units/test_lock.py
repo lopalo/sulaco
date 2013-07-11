@@ -25,9 +25,9 @@ class BasicTestLock(object):
     @testing.gen_test
     def test_blocking(self):
         self._blocking_coroutine(1) # run in parallel
-        start = time()
+        start = self.io_loop.time()
         yield from self.lock.acquire(self.key)
-        self.assertLessEqual(1, time() - start)
+        self.assertLessEqual(1, self.io_loop.time() - start)
 
     @gen.coroutine
     def _blocking_coroutine(self, dtime):

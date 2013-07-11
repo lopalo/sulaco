@@ -21,6 +21,7 @@ class ConnectionHandler(object):
     """
     Should be first in list of basic classes, if used as mixin
     """
+    #TODO: check if connection is alive
 
     def setup(self, connman, root):
         self._connman = connman

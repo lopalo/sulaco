@@ -13,7 +13,7 @@ from sulaco.utils.receiver import (
     message_receiver, message_router, LoopbackMixin,
     ProxyMixin, USER_SIGN, INTERNAL_USER_SIGN, INTERNAL_SIGN)
 from sulaco.utils import Config, Sender, ColorUTCFormatter
-from sulaco.utils.zmq import install
+from zmq.eventloop.ioloop import install
 from sulaco.outer_server.message_manager import (
     MessageManager, LocationMessageManager)
 from sulaco.outer_server.message_manager import LocationRoot
