@@ -57,6 +57,11 @@ class NotLoadedScript(Exception):
 
 
 class RedisScript(object):
+    """
+    Lua to Python conversion
+    false -> None (Nil -> None)
+    true -> 1 (type int)
+    """
 
     def __init__(self, script):
         self.script = script

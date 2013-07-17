@@ -58,6 +58,8 @@ class ConnectionHandler(object):
     def on_close(self):
         super().on_close()
         self._connman.remove_connection(self)
+        logger.debug("Connection removed")
+        #TODO: func test that checks log
 
 
 class ConnectionManager(object):
