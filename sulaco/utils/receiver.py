@@ -41,10 +41,10 @@ def _dispatch(obj, path, kwargs, sign, index, root=False):
         if meth is None:
             if isinstance(obj, ProxyMixin):
                 rest_path = path[index:]
+                obj.proxy_method(rest_path, sign, kwargs)
                 if not root:
-                    obj.proxy_method(rest_path, sign, kwargs)
                     return dummy_generator()
-                return partial(meth, rest_path, sign)
+                return dummy_generator
             else:
                 etxt = '{} has no method {}.'
                 raise ReceiverError(etxt.format(obj, name))
@@ -96,6 +96,10 @@ def message_router(sign=None, pass_sign=False):
         def new_func(self, path, kwargs, sign, index):
             def next_step(obj):
                 return _dispatch(obj, path, kwargs, sign, index + 1)
+            try:
+                next_step.__next_step__ = path[index + 1]
+            except IndexError:
+                next_step.__next_step__ = None
             if pass_sign:
                 result = func(self, next_step, sign, **kwargs)
             else:
@@ -134,6 +138,13 @@ def dummy_generator():
 
 
 def root_dispatch(root, path, kwargs, sign):
+    assert sign in SIGNS, "unknown sign '{}'".format(sign)
+    if sign == USER_SIGN:
+        for k in kwargs:
+            if not k.startswith('_'):
+                continue
+            error = "Got special kwarg '{}'. Forbidden for users".format(k)
+            raise SignError(error)
     func = _dispatch(root, path, kwargs, sign, 0, True)
     future = coroutine(func)()
     if isinstance(root, LoopbackMixin):
@@ -169,14 +180,29 @@ class LoopbackMixin(object):
 
     @property
     def lbs(self):
-        """ Returns sender that will schedule a dispatch of message"""
+        """ Returns sender that will schedule a dispatch of message """
 
         return Sender(self.send_loopback)
 
 
 class ProxyMixin(object, metaclass=ABCMeta):
+    # TODO: proxy method should add sign in message if sends in zmq socket.
+    #       Fix in test application and sandbox
 
     @abstractmethod
     def proxy_method(self, rest_path, sign, kwargs):
-        pass
+        """ Should not be a generator """
+
+    def step_is_proxy(self, next_step):
+        #TODO: test
+        name = next_step.__next_step__
+        if name is None:
+            return True
+        meth = getattr(self, name, None)
+        if meth is None:
+            return True
+        meth_type = getattr(meth, '__receiver__method__', '')
+        if meth_type not in (MESSAGE_RECEIVER, MESSAGE_ROUTER):
+            return True
+        return False
 

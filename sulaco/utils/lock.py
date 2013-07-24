@@ -8,6 +8,7 @@ class LockError(Exception):
 
 
 class BasicLock(metaclass=ABCMeta):
+    #TODO: context manager protocol
 
     def __init__(self, ioloop=None):
         self._ioloop = ioloop or IOLoop.instance()

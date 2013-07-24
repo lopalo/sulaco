@@ -59,7 +59,7 @@ class NotLoadedScript(Exception):
 class RedisScript(object):
     """
     Lua to Python conversion
-    false -> None (Nil -> None)
+    false -> Nil -> None
     true -> 1 (type int)
     """
 

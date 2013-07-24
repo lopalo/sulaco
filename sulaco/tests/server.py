@@ -118,8 +118,9 @@ class Location(ProxyMixin):
         self._config = config
         self.s = Sender(self.send)
 
-    def send(self, msg):
+    def send(self, msg, sign=INTERNAL_SIGN):
         msg['kwargs']['uid'] = self._user.uid
+        msg['sign'] = sign
         self._loc_input.send(msgpack.dumps(msg))
 
     @message_receiver(INTERNAL_SIGN)
@@ -139,7 +140,7 @@ class Location(ProxyMixin):
         kwargs.pop('location', None)
         kwargs.pop('conn', None)
         if sign == USER_SIGN:
-            self.send(dict(path='.'.join(path), kwargs=kwargs))
+            self.send(dict(path='.'.join(path), kwargs=kwargs), sign=USER_SIGN)
         elif sign == INTERNAL_SIGN:
             path_prefix = list(self._config.outer_server.
                             client_location_handler_path.split('.'))

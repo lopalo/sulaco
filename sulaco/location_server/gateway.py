@@ -87,8 +87,9 @@ class Gateway(object):
         logger.debug("Received message: %s", message)
         path = message['path'].split('.')
         kwargs = message['kwargs']
+        sign = message['sign']
         with ExceptionStackContext(self.exception_handler):
-            root_dispatch(self._root, path, kwargs, INTERNAL_SIGN)
+            root_dispatch(self._root, path, kwargs, sign)
 
     def exception_handler(self, type, value, traceback):
         logger.exception('Exception in message handler')

@@ -3,7 +3,7 @@ import logging
 
 from sulaco.utils import Config, ColorUTCFormatter
 from zmq.eventloop.ioloop import install
-from sulaco.utils.receiver import message_receiver, INTERNAL_SIGN
+from sulaco.utils.receiver import message_receiver, INTERNAL_SIGN, USER_SIGN
 from sulaco.location_server.gateway import Gateway
 
 
@@ -21,7 +21,7 @@ class Root(object):
         self._gateway.prs(uid).init(users=users, ident=self._ident)
         self._gateway.pubs.user_connected(user=user)
 
-    @message_receiver(INTERNAL_SIGN)
+    @message_receiver(USER_SIGN)
     def move_to(self, uid, target_location):
         del self._users[uid]
         self._gateway.prs(uid).enter(location=target_location)

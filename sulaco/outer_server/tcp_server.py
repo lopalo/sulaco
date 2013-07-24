@@ -36,6 +36,14 @@ class TCPServer(BasicTCPServer):
 class ABCProtocol(object, metaclass=ABCMeta):
 
     @abstractmethod
+    def message_dumper(self):
+        pass
+
+    @abstractmethod
+    def message_loader(self):
+        pass
+
+    @abstractmethod
     def send(self, message):
         pass
 
@@ -74,10 +82,10 @@ class SimpleProtocol(ABCProtocol):
     def _on_body(self, data):
         if not self._stream.closed():
             self._stream.read_bytes(self._header_bytes, self._on_header)
-        self.on_message(msgpack.loads(data, encoding='utf-8'))
+        self.on_message(self.message_loader(data))
 
     def send(self, message):
-        data = msgpack.dumps(message)
+        data = self.message_dumper(message)
         dlen = str(len(data)).encode('utf-8')
         data = (self._header_bytes - len(dlen)) * b'0' + dlen + data
         self._stream.write(data, self.on_sent)
@@ -96,4 +104,11 @@ class SimpleProtocol(ABCProtocol):
 
     def closed(self):
         return self._stream.closed()
+
+    def message_dumper(self, message):
+        return msgpack.dumps(message)
+
+    def message_loader(self, data):
+        return msgpack.loads(data, encoding='utf-8')
+
 
