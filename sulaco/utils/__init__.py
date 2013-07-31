@@ -1,10 +1,12 @@
 #TODO: move all utils files to a higher directory
 import time
 import logging
+import functools
 import yaml
 
 from tornado.ioloop import IOLoop
 from tornado.gen import Task
+from tornado.concurrent import return_future
 
 
 class Config(object):
@@ -89,10 +91,21 @@ class ColorUTCFormatter(UTCFormatter):
         return color + msg + '\x1b[0m'
 
 
-def async_sleep(seconds, ioloop=None):
+def sleep(seconds, ioloop=None):
     ioloop = ioloop or IOLoop.instance()
     time = ioloop.time() + seconds
-    return Task(ioloop.add_timeout, time)
+    yield Task(ioloop.add_timeout, time)
+
+
+def return_iter_future(f):
+    wrapped = return_future(f)
+    @functools.wraps(wrapped)
+    def wrap(*args, **kwargs):
+        fut =  wrapped(*args, **kwargs) # starts asynchronous opeation
+        def iterator():
+            return (yield fut)
+        return iterator()
+    return wrap
 
 
 def get_pairs(items):

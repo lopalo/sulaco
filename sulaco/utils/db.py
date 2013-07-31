@@ -5,6 +5,8 @@ from toredis.commands import RedisCommandsMixin
 from toredis.client import ClientPool, Client
 from toredis.nodes import RedisNodes as BasicRedisNodes
 
+from sulaco.utils import return_iter_future
+
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,7 @@ class RedisCommandsFutureMixin(RedisCommandsMixin):
         meth = getattr(RedisCommandsMixin, mname)
         if mname.startswith('_') or not callable(meth):
             continue
-        locals()[mname] = return_future(meth)
+        locals()[mname] = return_iter_future(meth)
 
 
 class RedisClient(RedisCommandsFutureMixin, Client):
@@ -29,6 +31,9 @@ class RedisPool(RedisCommandsFutureMixin, ClientPool):
 
 class RedisNodes(BasicRedisNodes):
     pool_cls = RedisPool
+    #TODO: To avoid rebalancing use '<shard_id>|<key>' form of key.
+    #      Get random shard considering weights of shards.
+    #      May be change basic class RedisNodes in toredis
 
 ### check of db ###
 
@@ -38,9 +43,9 @@ class WrongDBNameError(Exception):
 
 def check_db(name, db):
     try:
-        ret = yield db.setnx('db_name', name)
+        ret = yield from db.setnx('db_name', name)
         if not ret:
-            old_name = yield db.get('db_name')
+            old_name = yield from db.get('db_name')
             old_name = old_name.decode('utf-8')
             if name != old_name:
                 logger.error("DB name changed from '%s' to '%s'",
@@ -100,7 +105,7 @@ class RedisScriptsContainer(object, metaclass=RedisScriptsMeta):
 
     def load_scripts(self):
         for f in self._script_fields:
-            sha1 = yield self.script_load(f.script)
+            sha1 = yield from self.script_load(f.script)
             self._script_hashes[f.name] = sha1
 
 

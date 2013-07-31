@@ -78,6 +78,7 @@ def start_location_manager(config):
 
 
     def heartbeats_checker():
+        #TODO: func test for deleting of location by timeout (use SIGKILL)
         logger.debug('Check heartbeats')
         for loc_id, t in last_heartbeats.copy().items():
             if ioloop.time() - t < conf.max_heartbeat_silence:

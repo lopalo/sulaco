@@ -186,15 +186,13 @@ class LoopbackMixin(object):
 
 
 class ProxyMixin(object, metaclass=ABCMeta):
-    # TODO: proxy method should add sign in message if sends in zmq socket.
-    #       Fix in test application and sandbox
 
     @abstractmethod
     def proxy_method(self, rest_path, sign, kwargs):
         """ Should not be a generator """
 
     def step_is_proxy(self, next_step):
-        #TODO: test
+        #TODO: unit test
         name = next_step.__next_step__
         if name is None:
             return True
