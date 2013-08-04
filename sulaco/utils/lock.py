@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from contextlib import contextmanager
 from tornado.ioloop import IOLoop
 from sulaco.utils import sleep
 
@@ -9,8 +10,7 @@ class LockError(Exception):
 
 class BasicLock(metaclass=ABCMeta):
 
-    def __init__(self, key, ioloop=None):
-        self._key = key
+    def __init__(self, ioloop=None):
         self._ioloop = ioloop or IOLoop.instance()
 
     @abstractmethod
@@ -21,50 +21,41 @@ class BasicLock(metaclass=ABCMeta):
     def release(self, key):
         pass
 
-    def __iter__(self):
-        yield from self.acquire()
-        return self
+    @contextmanager
+    def _ctxman(self, key):
+        try:
+            yield True
+        finally:
+            self.release(key)
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.release()
-
-
-def lock_factory(keys=None, ioloop=None):
-    if keys is None:
-        keys = set()
-    return lambda key: Lock(key=key, keys=keys, ioloop=ioloop)
+    def atomic(self, key):
+        yield from self.acquire(key)
+        return self._ctxman(key)
 
 
 class Lock(BasicLock):
 
     def __init__(self, *args, **kwargs):
-        self._keys = kwargs.pop('keys')
         super().__init__(*args, **kwargs)
+        self._keys = set()
 
-    def acquire(self, blocking=True, timeout=10, check_period=0.005):
-        if self._key in self._keys:
+    def acquire(self, key, blocking=True, timeout=10, check_period=0.005):
+        if key in self._keys:
             if blocking:
                 start = self._ioloop.time()
-                while self._key in self._keys:
+                while key in self._keys:
                     yield from sleep(check_period, self._ioloop)
                     if self._ioloop.time() - start >= timeout:
                         raise LockError('Timeout expired')
             else:
                 return False
-        self._keys.add(self._key)
+        self._keys.add(key)
         return True
 
-    def release(self):
-        if not self._key in self._keys:
+    def release(self, key):
+        if not key in self._keys:
             raise LockError('Try to release unlocked lock')
-        self._keys.remove(self._key)
-
-
-def redis_lock_factory(client, ioloop=None):
-    return lambda key: RedisLock(key=key, client=client, ioloop=ioloop)
+        self._keys.remove(key)
 
 
 class RedisLock(BasicLock):
@@ -75,8 +66,8 @@ class RedisLock(BasicLock):
         self._client = kwargs.pop('client')
         super().__init__(*args, **kwargs)
 
-    def acquire(self, blocking=True, timeout=10, check_period=0.005):
-        key = self.key_prefix + str(self._key)
+    def acquire(self, key, blocking=True, timeout=10, check_period=0.005):
+        key = self.key_prefix + str(key)
         ttl = timeout * self.key_ttl
         ok = yield from self._client.setnx(key, 1)
         if ok:
@@ -93,8 +84,8 @@ class RedisLock(BasicLock):
         self._client.expire(key, self.key_ttl) # set without waiting
         return True
 
-    def release(self):
-        key = self.key_prefix + str(self._key)
+    def release(self, key):
+        key = self.key_prefix + str(key)
         self._client.delete(key, callback=self._check_release) # check without waiting
 
     def _check_release(self, ok):

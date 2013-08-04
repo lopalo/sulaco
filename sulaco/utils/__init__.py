@@ -97,14 +97,38 @@ def sleep(seconds, ioloop=None):
     yield Task(ioloop.add_timeout, time)
 
 
+class Proxy(object):
+
+    def __init__(self, obj):
+        self._obj = obj
+
+    def __getattribute__(self, name):
+        if name.startswith('__') and name.endswith('__'):
+            return getattr(self._obj, name)
+        try:
+            return super().__getattribute__(name)
+        except AttributeError:
+            return getattr(self._obj, name)
+
+    def __repr__(self):
+        return repr(self._obj)
+
+    def __str__(self):
+        return str(self._obj)
+
+
+class FutureIterProxy(Proxy):
+
+   def __iter__(self):
+        return (yield self)
+
+
 def return_iter_future(f):
     wrapped = return_future(f)
     @functools.wraps(wrapped)
     def wrap(*args, **kwargs):
-        fut =  wrapped(*args, **kwargs) # starts asynchronous opeation
-        def iterator():
-            return (yield fut)
-        return iterator()
+        fut =  wrapped(*args, **kwargs)
+        return FutureIterProxy(fut)
     return wrap
 
 
